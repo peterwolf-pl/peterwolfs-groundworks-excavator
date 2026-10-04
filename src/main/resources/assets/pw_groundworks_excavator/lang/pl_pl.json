@@ -3,12 +3,10 @@
   "entity.pw_groundworks_excavator.excavator": "Koparka Groundworks",
   "key.categories.pw_groundworks_excavator": "Koparka Groundworks",
   "key.pw_groundworks_excavator.toggle_mode": "Przełącz tryb Jazda/Ramię (X)",
-  "key.pw_groundworks_excavator.cab_left": "Obrót kabiny w lewo",
-  "key.pw_groundworks_excavator.cab_right": "Obrót kabiny w prawo",
-  "key.pw_groundworks_excavator.boom_up": "Podnieś ramię (boom)",
-  "key.pw_groundworks_excavator.boom_down": "Opuść ramię (boom)",
-  "key.pw_groundworks_excavator.stick_out": "Wysuń przedramię (stick)",
-  "key.pw_groundworks_excavator.stick_in": "Cofnij przedramię (stick)",
-  "key.pw_groundworks_excavator.bucket_curl": "Zwiń łyżkę",
-  "key.pw_groundworks_excavator.bucket_dump": "Wysyp z łyżki"
+  "key.pw_groundworks_excavator.boom_up": "Podnieś wysięgnik (Strzałka w górę)",
+  "key.pw_groundworks_excavator.boom_down": "Opuść wysięgnik (Strzałka w dół)",
+  "key.pw_groundworks_excavator.bucket_curl": "Zwiń łyżkę / nabieranie (Strzałka w lewo)",
+  "key.pw_groundworks_excavator.bucket_dump": "Otwórz łyżkę / wysyp (Strzałka w prawo)",
+  "key.pw_groundworks_excavator.stick_out": "Wysuń przedramię (R)",
+  "key.pw_groundworks_excavator.stick_in": "Przyciągnij przedramię (F)"
 }
