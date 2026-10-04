@@ -317,9 +317,50 @@ public class GroundworksExcavatorEntity extends Entity {
                     this.getVehiclePitch(), this.getVehicleRoll());
         }
 
+        // 3b. Evaluate Bucket Ground Push-Up Physics (podnoszenie koparki na łyżce)
+        // If the boom/stick/bucket pushes firmly down against solid ground, the hydraulic force
+        // jacks the undercarriage upward off the ground and tilts the chassis pitch!
+        BucketPose currentArmPose = ArmKinematics.computeBucketPose(
+                this.position(),
+                this.getYRot(),
+                trackState.pitch(),
+                trackState.roll(),
+                constrained.cabin(),
+                constrained.boom(),
+                constrained.stick(),
+                constrained.bucket(),
+                this.getBucketType()
+        );
+
+        Vec3 teethPoint = currentArmPose.cuttingEdge();
+        double groundUnderTeeth = TrackMovementController.sampleSurfaceHeight(serverLevel, teethPoint);
+        double penetrationDepth = groundUnderTeeth - teethPoint.y;
+
+        float dynamicPitch = trackState.pitch();
+        double liftDeltaY = 0.0D;
+
+        if (penetrationDepth > 0.05D && currentArmPose.dumpTiltDegrees() > -60.0F) {
+            // Bucket is firmly planted and pressing into solid ground
+            // Push-up strength scales with penetration depth and downward arm effort
+            double maxLift = 1.60D; // Maximum machine ground clearance (up to 1.6 blocks jacked up!)
+            double targetLift = Math.min(maxLift, penetrationDepth * 1.25D);
+            liftDeltaY = targetLift * 0.35D;
+
+            // Pitch tilt depends on cab yaw angle:
+            // When arm is facing front (upperYaw ~ 0): jacks the front up (pitch tilts positive)
+            // When arm is facing rear (upperYaw ~ 180): jacks the rear up (pitch tilts negative)
+            double cabYawRad = Math.toRadians(constrained.cabin());
+            float pitchTiltImpact = (float) (Math.cos(cabYawRad) * (targetLift * 18.0D));
+            dynamicPitch = Mth.clamp(trackState.pitch() + pitchTiltImpact, -35.0F, 40.0F);
+
+            // While jacked up on the bucket, driving tracks provides crawler traction or wheel spin
+            this.syncPosition = true;
+            this.needsSync = true;
+        }
+
         this.entityData.set(TRACK_LEFT_SPEED, trackState.leftSpeed());
         this.entityData.set(TRACK_RIGHT_SPEED, trackState.rightSpeed());
-        this.entityData.set(VEHICLE_PITCH, trackState.pitch());
+        this.entityData.set(VEHICLE_PITCH, dynamicPitch);
         this.entityData.set(VEHICLE_ROLL, trackState.roll());
 
         // Apply yaw rotation
@@ -327,9 +368,11 @@ public class GroundworksExcavatorEntity extends Entity {
         this.setYHeadRot(this.getYRot());
         this.setYBodyRot(this.getYRot());
 
-        // Apply translation movement with gravity
+        // Apply translation movement with gravity and hydraulic bucket lift
         Vec3 movement = trackState.forwardDelta();
-        if (!this.onGround()) {
+        if (liftDeltaY > 0.001D) {
+            movement = movement.add(0.0D, liftDeltaY, 0.0D);
+        } else if (!this.onGround()) {
             movement = movement.add(0.0D, -0.08D, 0.0D);
         } else {
             movement = movement.add(0.0D, -0.02D, 0.0D); // Keep tracks grounded
