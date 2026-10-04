@@ -92,6 +92,63 @@ class AutoTrenchControllerTest {
         assertEquals(1, controller.completedSections());
     }
 
+    @Test
+    void performsTwoCutsAtStationBeforeReversing() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.start();
+
+        // Simulate dumping first cut load at right dump pose
+        controller.startForTest(AutoTrenchController.Phase.DUMP_RIGHT, null);
+        controller.tick(snapshot(
+                true, AutoTrenchController.RIGHT_DUMP_YAW, AutoTrenchController.SAFE_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.DUMP_BUCKET,
+                0, Vec3.ZERO, 0.0F));
+
+        // After first cut dumps, it must perform the second cut (pass 1) at the SAME station, NOT reverse yet!
+        assertEquals(AutoTrenchController.Phase.POSITION_FOR_CUT, controller.phase());
+        assertEquals(1, controller.cutsAtCurrentStation());
+
+        // Now simulate finishing the second cut dump
+        controller.setPhaseForTest(AutoTrenchController.Phase.DUMP_RIGHT);
+        controller.tick(snapshot(
+                true, AutoTrenchController.RIGHT_DUMP_YAW, AutoTrenchController.SAFE_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.DUMP_BUCKET,
+                0, Vec3.ZERO, 0.0F));
+
+        // After the second cut dumps, NOW it must reverse 1 block!
+        assertEquals(AutoTrenchController.Phase.RESET_AND_REVERSE, controller.phase());
+        assertEquals(0, controller.cutsAtCurrentStation());
+    }
+
+    @Test
+    void stallDetectionTriggersStickOutAndBoomUpReliefThenContinues() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.start();
+        controller.setPhaseForTest(AutoTrenchController.Phase.CUT_AND_CURL);
+
+        // Feed stagnant joint angles for several ticks to simulate arm hitting maximum terrain resistance
+        AutoTrenchController.Controls relief = null;
+        for (int i = 0; i < 9; i++) {
+            relief = controller.tick(snapshot(
+                    true, 0.0F, 5.0F, -80.0F, 10.0F,
+                    64, Vec3.ZERO, 0.0F));
+        }
+
+        // Stalled state must trigger relief: boom up (Arrow Up > 0) and stick out (W key > 0)
+        assertEquals(AutoTrenchController.Phase.RELIEVE_STALL, controller.phase());
+        assertNotNull(relief);
+        assertTrue(relief.boom() > 0.0F, "Relief must command boom up (Arrow Up)");
+        assertTrue(relief.stick() > 0.0F, "Relief must command stick out (W key)");
+
+        // After relief duration, it must continue the cycle (lift & swing right with collected material)
+        for (int i = 0; i < AutoTrenchController.STALL_RELIEF_TICKS; i++) {
+            controller.tick(snapshot(
+                    true, 0.0F, 10.0F, -70.0F, 10.0F,
+                    64, Vec3.ZERO, 0.0F));
+        }
+        assertEquals(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT, controller.phase());
+    }
+
     private static AutoTrenchController.Snapshot snapshot(
             boolean occupied,
             float cabin,

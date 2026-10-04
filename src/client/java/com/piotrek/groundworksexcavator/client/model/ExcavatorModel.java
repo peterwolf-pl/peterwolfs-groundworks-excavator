@@ -19,7 +19,6 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
 
     private final ModelPart undercarriage;
     private final ModelPart upperBody;
-    private final ModelPart cabinGlass;
     private final ModelPart boom;
     private final ModelPart stick;
     private final ModelPart bucket;
@@ -34,7 +33,6 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         super(root);
         this.undercarriage = root.getChild("undercarriage");
         this.upperBody = root.getChild("upper_body");
-        this.cabinGlass = this.upperBody.getChild("cabin_glass");
         this.boom = this.upperBody.getChild("boom");
         this.stick = this.boom.getChild("stick");
         this.bucket = this.stick.getChild("bucket");
@@ -45,10 +43,6 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         ModelPart beaconBase = this.upperBody.getChild("beacon_base");
         this.beaconReflectorOn = beaconBase.getChild("beacon_reflector_on");
         this.beaconReflectorOff = beaconBase.getChild("beacon_reflector_off");
-    }
-
-    public ModelPart getCabinGlass() {
-        return this.cabinGlass;
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -196,22 +190,6 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         .texOffs(66, 152).addBox(-12.0F, -2.5F, 10.0F, 2.0F, 1.0F, 3.0F)
                         .texOffs(66, 152).addBox(-9.0F, -2.5F, 10.0F, 2.0F, 1.0F, 3.0F),
                 PartPose.offset(0.0F, 9.0F, 0.0F)
-        );
-
-        // ── Crystal-Clear Safety Glass Window Panes (Sub-part rendered in translucent pass) ──
-        upperBody.addOrReplaceChild(
-                "cabin_glass",
-                CubeListBuilder.create()
-                        // Front upper main windshield (high ceiling, full panoramic visibility!)
-                        // 26x17 UV [0..26, 152..169]
-                        .texOffs(0, 152).addBox(-15.5F, -25.5F, 14.2F, 11.0F, 18.5F, 0.5F)
-                        // Front lower trench inspection window (looking right in front of tracks!)
-                        .texOffs(0, 152).addBox(-15.5F, -7.0F, 14.8F, 11.0F, 5.0F, 0.5F)
-                        // Left door glass window: 38x32 UV [348..386, 74..106]
-                        .texOffs(348, 74).addBox(-16.8F, -25.0F, -4.0F, 0.5F, 16.0F, 18.0F)
-                        // Right panoramic glass window (view of boom & hydraulics)
-                        .texOffs(348, 74).addBox(-3.8F, -25.0F, -4.0F, 0.5F, 16.0F, 18.0F),
-                PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
         // Flashing Warning Beacon on Cab Roof (Base mount + Amber Dome)

@@ -85,8 +85,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
         this.model.setupAnim(state);
 
-        // 1. Render solid opaque machine parts (tracks, chassis, engine, cab frame, boom, bucket)
-        this.model.getCabinGlass().visible = false;
+        // Render excavator model using cutout layer for crisp, artifact-free textures and open cabin view
         collector.submitModel(
                 this.model,
                 state,
@@ -96,22 +95,6 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 OverlayTexture.NO_OVERLAY,
                 state.outlineColor
         );
-
-        // 2. Render cabin glass window panes in the translucent pass with proper turntable transform
-        this.model.getCabinGlass().visible = true;
-        stack.pushPose();
-        // ModelPart upper_body transform:
-        stack.translate(0.0F, 9.0F / 16.0F, 0.0F);
-        stack.rotate(new Quaternionf().rotationZYX(0.0F, (float) Math.toRadians(state.upperYaw), 0.0F));
-        collector.order(1).submitModelPart(
-                this.model.getCabinGlass(),
-                stack,
-                RenderTypes.entityTranslucent(TEXTURE),
-                state.lightCoords,
-                OverlayTexture.NO_OVERLAY,
-                null
-        );
-        stack.popPose();
 
         stack.popPose();
     }
