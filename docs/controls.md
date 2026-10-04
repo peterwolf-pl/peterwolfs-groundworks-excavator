@@ -9,7 +9,7 @@ Real excavators are operated with two primary joysticks:
 
 **Peterwolf's Groundworks Excavator** maps this real-world two-handed layout directly to your keyboard:
 - **Left Hand**: On **`WASD`**
-- **Right Hand**: On **`Arrow Keys`** (`↑`, `↓`, `←`, `→`)
+- **Right Hand**: On **`Arrow Keys`** (`↑`, `↓`, `←`, `→`) or `T`/`G`
 - **Thumb/Toggle**: On **`X`** to switch between **DRIVE** and **ARM** mode.
 
 ---
@@ -23,7 +23,8 @@ Both hands articulate the machine simultaneously like dual joysticks:
 | **Lewa ręka (WASD)** | `A` / `D` | **Obrót kabiny** w lewo / w prawo | Cab Swing Left / Right |
 | **Lewa ręka (WASD)** | `W` / `S` | **Przedramię** wysuwanie / przyciąganie | Dipper Stick Out / In |
 | **Prawa ręka (Strzałki)** | `↑` / `↓` | **Główne ramię** podnoszenie / opuszczanie | Main Boom Up / Down |
-| **Prawa ręka (Strzałki)** | `←` / `→` | **Łyżka** nabieranie-zwijanie / wysyp | Bucket Curl In / Dump Out |
+| **Prawa ręka (Strzałki & T/G)** | `←` / `T` | **Łyżka przyciągnięta** do mnie (nabrana z towarem) | Bucket Curl In (holds cargo) |
+| **Prawa ręka (Strzałki & T/G)** | `→` / `G` | **Łyżka odpuszczona** od gracza (odwrócona, wysyp) | Bucket Dump Out (pours cargo) |
 
 *(Auxiliary shortcuts: `R`/`F` can also be used for Stick).*
 
@@ -52,11 +53,12 @@ Left hand drives the tracks across the terrain; Right hand keeps full control ov
 5. **Right Hand** (`↓`): Lower the boom until teeth touch the granular ground.
 6. **Dig Stroke**:
    - **Left Hand** (`S`): Pull the stick inward toward the cab.
-   - **Right Hand** (`←`): Simultaneously curl the bucket teeth into the ground.
+   - **Right Hand** (`←` lub `T`): Simultaneously curl the bucket teeth into the ground (przyciągnięcie do mnie $\to$ nabranie z towarem).
    *(The teeth slice through the terrain, and the swept volume fills the bucket).*
 7. **Lift & Carry**:
    - **Right Hand** (`↑`): Raise the boom to lift the loaded bucket out of the trench.
    - **Left Hand** (`A`/`D`): Rotate the turntable cab towards the dump site or truck bed.
+   *(Bucket remains curled inward, holding the cargo securely with zero spillage).*
 8. **Dump**:
-   - **Right Hand** (`→`): Dump the bucket out. Soil pours from the lip into Groundworks terrain.
+   - **Right Hand** (`→` lub `G`): Push the bucket outward away from the player (odpuszczenie od gracza $\to$ pełne odwrócenie). Soil pours from the lip into Groundworks terrain.
 9. Press **`X`** to return to **Drive Mode** and reposition.

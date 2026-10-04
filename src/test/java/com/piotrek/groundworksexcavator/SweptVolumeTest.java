@@ -45,11 +45,11 @@ public class SweptVolumeTest {
         Vec3 base = new Vec3(0.0D, 10.0D, 0.0D);
         // Previous pose: arm curled back
         BucketPose prev = ArmKinematics.computeBucketPose(
-                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -30.0F, -10.0F
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -30.0F, 0.0F
         );
         // Current pose: bucket curling forward into soil
         BucketPose curr = ArmKinematics.computeBucketPose(
-                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -20.0F, 0.0F
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -20.0F, -20.0F
         );
 
         SweptResult result = SweptBucketVolume.compute(prev, curr);

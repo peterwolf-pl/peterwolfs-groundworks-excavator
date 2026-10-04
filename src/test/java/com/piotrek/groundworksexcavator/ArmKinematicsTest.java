@@ -44,7 +44,7 @@ public class ArmKinematicsTest {
                 base, 0.0F, 0.0F, 0.0F, 0.0F,
                 ArmKinematics.BOOM_MIN, // -28 deg
                 -20.0F,                 // extended down
-                -45.0F                  // teeth pointing down
+                45.0F                   // pointing down into ground
         );
 
         double diggingDepthBelowBase = base.y - pose.cuttingEdge().y;
@@ -105,16 +105,18 @@ public class ArmKinematicsTest {
     void testDumpTiltAngle() {
         Vec3 base = new Vec3(0.0D, 10.0D, 0.0D);
 
-        // Curled / held bucket (pointing horizontal or up: total pitch = 20 - 10 + 10 = +20 deg)
+        // Curled / held bucket (przyciągnięta do mnie: bucketAngle = -40 deg)
+        // totalBucketPitch = 20 - 10 - (-40) = +50 deg -> points UP, dumpTilt < 0
         BucketPose levelPose = ArmKinematics.computeBucketPose(
-                base, 0.0F, 0.0F, 0.0F, 0.0F, 20.0F, -10.0F, 10.0F
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 20.0F, -10.0F, -40.0F
         );
         assertTrue(levelPose.dumpTiltDegrees() < ArmKinematics.DUMP_THRESHOLD_DEG,
                 "Curled bucket should not trigger dump. Tilt: " + levelPose.dumpTiltDegrees());
 
-        // Dumped bucket: teeth pointing downward (total pitch = 0 - 20 - 30 = -50 deg)
+        // Dumped bucket (odpuszczona od gracza / w pełni odwrócona: bucketAngle = +55 deg)
+        // totalBucketPitch = 0 - 20 - 55 = -75 deg -> points DOWN, dumpTilt = 75 deg >= 30 deg
         BucketPose dumpPose = ArmKinematics.computeBucketPose(
-                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -20.0F, -30.0F
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -20.0F, 55.0F
         );
         assertTrue(dumpPose.dumpTiltDegrees() >= ArmKinematics.DUMP_THRESHOLD_DEG,
                 "Downward tilted bucket must trigger dump. Tilt: " + dumpPose.dumpTiltDegrees());

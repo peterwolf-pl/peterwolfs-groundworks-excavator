@@ -96,8 +96,11 @@ public final class ExcavatorInputHandler {
             int currentMode = isDriveMode ? GroundworksExcavatorEntity.MODE_DRIVE : GroundworksExcavatorEntity.MODE_EXCAVATOR;
 
             // ── BUCKET (Łyżka) — always active on Left/Right Arrow and T/G in both modes ──
-            if (bucketCurl) bucket += 1.0F;  // Curl inward / nabieranie
-            if (bucketDump) bucket -= 1.0F;  // Dump outward / wysyp
+            // Left Arrow / T: Przyciągnięcie do mnie (Curl inward / nabranie z towarem)
+            if (bucketCurl) bucket -= 1.0F;
+
+            // Right Arrow / G: Odpuszczenie od gracza (Dump outward / w pełni odwrócona, wysyp towaru)
+            if (bucketDump) bucket += 1.0F;
 
             // ── BOOM (Wysięgnik główny) — always active on Up/Down Arrow ──
             if (boomUp) boom += 1.0F;

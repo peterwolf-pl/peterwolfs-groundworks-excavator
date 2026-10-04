@@ -133,28 +133,30 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 56.0F)
         );
 
-        // ── 5. Bucket (Backhoe Scoop hanging underneath, opening down/in) ──
+        // ── 5. Bucket (Backhoe Scoop hanging underneath, opening towards cab) ──
         PartDefinition bucket = stick.addOrReplaceChild(
                 "bucket",
                 CubeListBuilder.create()
                         // Bucket top pivot linkage
-                        .texOffs(90, 86).addBox(-5.0F, -3.0F, 0.0F, 10.0F, 6.0F, 6.0F)
-                        // Bucket outer curved back shell (top)
-                        .texOffs(90, 94).addBox(-6.0F, -3.0F, 5.0F, 12.0F, 3.0F, 13.0F)
-                        // Bucket left cheek / side plate (extends DOWNWARDS in model space)
-                        .texOffs(74, 98).addBox(-6.0F, 0.0F, 5.0F, 2.0F, 8.0F, 15.0F)
-                        // Bucket right cheek / side plate (extends DOWNWARDS in model space)
-                        .texOffs(74, 98).addBox(4.0F, 0.0F, 5.0F, 2.0F, 8.0F, 15.0F)
-                        // Bucket bottom floor / cutting lip
-                        .texOffs(90, 108).addBox(-6.0F, 6.0F, 6.0F, 12.0F, 2.0F, 14.0F)
+                        .texOffs(90, 86).addBox(-5.0F, -3.0F, -3.0F, 10.0F, 6.0F, 6.0F)
+                        // Bucket outer curved back shell (facing forward/away from cab)
+                        .texOffs(90, 94).addBox(-6.0F, -2.0F, 0.0F, 12.0F, 8.0F, 3.0F)
+                        // Bucket heel plate (bottom curve)
+                        .texOffs(90, 94).addBox(-6.0F, 6.0F, -4.0F, 12.0F, 3.0F, 7.0F)
+                        // Left cheek plate (facing inward toward cab)
+                        .texOffs(74, 98).addBox(-6.0F, 0.0F, -12.0F, 2.0F, 8.0F, 14.0F)
+                        // Right cheek plate (facing inward toward cab)
+                        .texOffs(74, 98).addBox(4.0F, 0.0F, -12.0F, 2.0F, 8.0F, 14.0F)
+                        // Bottom floor plate
+                        .texOffs(90, 108).addBox(-6.0F, 6.0F, -12.0F, 12.0F, 2.0F, 10.0F)
                         // Cutting edge base plate
-                        .texOffs(90, 114).addBox(-6.0F, 6.0F, 19.5F, 12.0F, 2.0F, 2.0F)
-                        // 5 Hardened cutting teeth
-                        .texOffs(90, 119).addBox(-5.5F, 6.5F, 21.5F, 1.5F, 1.2F, 3.0F)
-                        .texOffs(90, 119).addBox(-2.75F, 6.5F, 21.5F, 1.5F, 1.2F, 3.0F)
-                        .texOffs(90, 119).addBox(0.0F, 6.5F, 21.5F, 1.5F, 1.2F, 3.0F)
-                        .texOffs(90, 119).addBox(2.75F, 6.5F, 21.5F, 1.5F, 1.2F, 3.0F)
-                        .texOffs(90, 119).addBox(5.0F, 6.5F, 21.5F, 1.5F, 1.2F, 3.0F),
+                        .texOffs(90, 114).addBox(-6.0F, 6.0F, -13.5F, 12.0F, 2.0F, 2.0F)
+                        // 5 Hardened cutting teeth (pointing towards cab)
+                        .texOffs(90, 119).addBox(-5.5F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(-2.75F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(0.0F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(2.75F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(5.0F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F),
                 PartPose.offset(0.0F, 0.0F, 38.0F)
         );
 
@@ -162,7 +164,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         bucket.addOrReplaceChild(
                 "bucket_contents",
                 CubeListBuilder.create()
-                        .texOffs(90, 123).addBox(-4.0F, 1.0F, 7.0F, 8.0F, 5.0F, 11.0F),
+                        .texOffs(90, 123).addBox(-4.0F, 1.0F, -10.0F, 8.0F, 5.0F, 10.0F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
