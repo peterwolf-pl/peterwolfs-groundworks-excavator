@@ -7,55 +7,65 @@
 
 ---
 
-## Control Modes
+## Dual Control Modes (Toggle with `X`)
 
-The machine separates locomotive track driving from hydraulic arm operation:
+Press **`X`** at any time while seated in the cab to instantly switch between **DRIVE MODE** and **ARM MODE**:
 
-### 1. Drive Controls (Tracks)
+### 1. DRIVE MODE (`Tryb Jazdy`)
+Optimized for traversing terrain and positioning the machine:
+- **`W`**: Drive tracks forward.
+- **`S`**: Drive tracks in reverse.
+- **`A`**: Steer left (curves left while moving; spins left in place when stationary).
+- **`D`**: Steer right (curves right while moving; spins right in place when stationary).
+- **`Arrows`**: Optional boom elevation and cab rotation adjustment during transit.
+- **`R` / `F`**: Extend / retract stick.
+- **`T` / `G`**: Curl / dump bucket.
 
-Differential crawler drive:
-- **`W`**: Drive both tracks forward.
-- **`S`**: Drive both tracks in reverse.
-- **`A`**: Steer left (curves left while driving forward; pivot-spins left when stationary).
-- **`D`**: Steer right (curves right while driving forward; pivot-spins right when stationary).
-
-Pivot steering allows turning $360^\circ$ in place by running the left and right tracks in opposing directions.
+### 2. ARM MODE (`Tryb Ramienia`)
+Tracks are safely locked stationary so full focus is given to excavation:
+- **`W` / `S`** (or **`Up` / `Down Arrow`**): Raise / lower the heavy boom.
+- **`A` / `D`** (or **`Left` / `Right Arrow`**): Rotate the turntable cab left / right.
+- **`R` / `F`**: Extend / retract dipper stick.
+- **`T` / `G`**: Curl / dump bucket.
 
 ---
 
-### 2. Hydraulic Arm & Turntable Controls
+## Complete Keybinding Reference
 
-Hydraulic articulation keys (configurable in **Options -> Controls -> Key Binds -> Groundworks Excavator**):
+Configurable in **Options -> Controls -> Key Binds -> Groundworks Excavator**:
 
-| Function | Default Key | Action |
-|---|---|---|
-| **Rotate Cab Left** | `Left Arrow` | Rotates turntable cab counter-clockwise |
-| **Rotate Cab Right** | `Right Arrow` | Rotates turntable cab clockwise |
-| **Raise Boom** | `Up Arrow` | Raises main boom arm up ($-28^\circ \dots +52^\circ$) |
-| **Lower Boom** | `Down Arrow` | Lowers main boom arm down |
-| **Extend Stick** | `R` | Pushes dipper arm outward |
-| **Retract Stick** | `F` | Pulls dipper arm inward toward the cab |
-| **Curl Bucket In** | `T` | Curls bucket teeth inward to scoop and hold material |
-| **Dump Bucket** | `G` | Uncurls bucket teeth downward into dumping orientation |
+| Key | Default Key | Action in Drive Mode | Action in Arm Mode |
+|---|---|---|---|
+| **Toggle Mode** | `X` | Switch to Arm Mode | Switch to Drive Mode |
+| **Move Forward** | `W` | Drive tracks forward | Raise boom |
+| **Move Backward** | `S` | Drive tracks in reverse | Lower boom |
+| **Move Left** | `A` | Steer / pivot tracks left | Rotate cab left |
+| **Move Right** | `D` | Steer / pivot tracks right | Rotate cab right |
+| **Rotate Cab Left** | `Left Arrow` | Rotate cab left | Rotate cab left |
+| **Rotate Cab Right** | `Right Arrow` | Rotate cab right | Rotate cab right |
+| **Raise Boom** | `Up Arrow` | Raise boom | Raise boom |
+| **Lower Boom** | `Down Arrow` | Lower boom | Lower boom |
+| **Extend Stick** | `R` | Extend stick | Extend stick |
+| **Retract Stick** | `F` | Retract stick | Retract stick |
+| **Curl Bucket In** | `T` | Curl bucket inward | Curl bucket inward |
+| **Dump Bucket** | `G` | Curl bucket outward (dump) | Curl bucket outward (dump) |
 
 ---
 
 ## Operating Technique
 
 ### Digging Cycle
-1. Position excavator facing the excavation trench or slope.
-2. Rotate cab towards the dig face (`Left` / `Right Arrow`).
-3. Extend the stick (`R`) and lower the boom (`Down Arrow`).
-4. Lower the bucket teeth into the granular ground.
-5. Pull the stick in (`F`) while simultaneously curling the bucket inward (`T`).
-6. As the teeth slice through the ground, the swept cutting volume removes granular voxels and fills the bucket.
+1. In **Drive Mode**, position the excavator facing the trench or slope.
+2. Press **`X`** to switch to **Arm Mode**.
+3. Rotate cab towards the dig face (`A` / `D` or `Left` / `Right Arrow`).
+4. Extend the stick (`R`) and lower the boom (`S` or `Down Arrow`).
+5. Lower the bucket teeth into the granular ground.
+6. Pull the stick in (`F`) while curling the bucket inward (`T`).
+7. As the teeth slice through the ground, the swept cutting volume removes granular voxels and fills the bucket.
 
-### Carrying Cycle
-1. Raise the boom (`Up Arrow`) with the bucket curled up to clear the ground.
-2. Rotate the turntable cab (`Left` / `Right Arrow`) towards the dump target (pile or truck).
-
-### Dumping Cycle
-1. Position the bucket above the desired pile location.
-2. Uncurl the bucket outward (`G`).
-3. When the bucket tilt passes $30^\circ$ downwards, soil gradually flows out of the bucket lip.
-4. Granular material falls into Groundworks terrain and naturally relaxes into a stable conical heap.
+### Carrying & Dumping Cycle
+1. Raise the boom (`W` or `Up Arrow`) with the bucket curled up.
+2. Rotate the cab (`A` / `D`) toward the dump target (pile or truck).
+3. Uncurl the bucket outward (`G`) until tilt passes $30^\circ$.
+4. Granular material pours out from the bucket lip into Groundworks terrain, forming a natural relaxed pile.
+5. Press **`X`** to switch back to **Drive Mode** to reposition the tracks.

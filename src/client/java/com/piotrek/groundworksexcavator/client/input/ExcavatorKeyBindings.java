@@ -13,6 +13,7 @@ public final class ExcavatorKeyBindings {
     public static final KeyMapping.Category CATEGORY =
             KeyMapping.Category.register(GroundworksExcavatorMod.id("controls"));
 
+    public static KeyMapping KEY_TOGGLE_MODE;
     public static KeyMapping KEY_CAB_LEFT;
     public static KeyMapping KEY_CAB_RIGHT;
     public static KeyMapping KEY_BOOM_UP;
@@ -25,6 +26,13 @@ public final class ExcavatorKeyBindings {
     private ExcavatorKeyBindings() {}
 
     public static void register() {
+        KEY_TOGGLE_MODE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.toggle_mode",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_X,
+                CATEGORY
+        ));
+
         KEY_CAB_LEFT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.cab_left",
                 InputConstants.Type.KEYBOARD,

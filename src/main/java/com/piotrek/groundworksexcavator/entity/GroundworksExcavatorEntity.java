@@ -43,7 +43,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public class GroundworksExcavatorEntity extends Entity {
 
+    // ── Control Modes ────────────────────────────────────────────────
+    public static final int MODE_DRIVE = 0;
+    public static final int MODE_EXCAVATOR = 1;
+
     // ── Synched Entity Data ───────────────────────────────────────────
+    private static final EntityDataAccessor<Integer> CONTROL_MODE =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> TRACK_LEFT_SPEED =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> TRACK_RIGHT_SPEED =
@@ -104,6 +110,7 @@ public class GroundworksExcavatorEntity extends Entity {
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(CONTROL_MODE, MODE_DRIVE);
         builder.define(TRACK_LEFT_SPEED, 0.0F);
         builder.define(TRACK_RIGHT_SPEED, 0.0F);
         builder.define(UPPER_YAW, 0.0F);
@@ -139,8 +146,15 @@ public class GroundworksExcavatorEntity extends Entity {
         if (this.inputFreshTicks > 0) {
             this.inputFreshTicks--;
         } else {
-            this.inputThrottle = 0.0F;
-            this.inputSteer = 0.0F;
+            Entity driver = this.getControllingPassenger();
+            if (driver instanceof ServerPlayer player && this.isDriveMode()) {
+                var input = player.getLastClientInput();
+                this.inputThrottle = input.forward() ? 1.0F : input.backward() ? -1.0F : 0.0F;
+                this.inputSteer = input.left() ? -1.0F : input.right() ? 1.0F : 0.0F;
+            } else {
+                this.inputThrottle = 0.0F;
+                this.inputSteer = 0.0F;
+            }
             this.inputCabYaw = 0.0F;
             this.inputBoom = 0.0F;
             this.inputStick = 0.0F;
@@ -193,7 +207,9 @@ public class GroundworksExcavatorEntity extends Entity {
         // Apply translation movement with gravity
         Vec3 movement = trackState.forwardDelta();
         if (!this.onGround()) {
-            movement = movement.add(0.0D, -0.06D, 0.0D);
+            movement = movement.add(0.0D, -0.08D, 0.0D);
+        } else {
+            movement = movement.add(0.0D, -0.02D, 0.0D); // Keep tracks grounded
         }
         this.setDeltaMovement(movement);
         this.move(MoverType.SELF, movement);
@@ -331,6 +347,21 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     @Override
+    public float maxUpStep() {
+        return 1.25F;
+    }
+
+    @Override
+    public boolean canCollideWith(Entity other) {
+        return false;
+    }
+
+    @Override
+    public boolean canBeCollidedWith(@Nullable Entity other) {
+        return other != null && !this.hasPassenger(other);
+    }
+
+    @Override
     public boolean isPickable() {
         return !this.isRemoved();
     }
@@ -341,6 +372,22 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     // ── Getters for Renderers & Controllers ───────────────────────────
+
+    public int getControlMode() {
+        return this.entityData.get(CONTROL_MODE);
+    }
+
+    public void setControlMode(int mode) {
+        this.entityData.set(CONTROL_MODE, mode);
+    }
+
+    public boolean isDriveMode() {
+        return this.getControlMode() == MODE_DRIVE;
+    }
+
+    public boolean isExcavatorMode() {
+        return this.getControlMode() == MODE_EXCAVATOR;
+    }
 
     public float getTrackLeftSpeed() {
         return this.entityData.get(TRACK_LEFT_SPEED);
@@ -428,6 +475,7 @@ public class GroundworksExcavatorEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
+        this.setControlMode(input.getIntOr("ControlMode", MODE_DRIVE));
         this.entityData.set(UPPER_YAW, input.getFloatOr("UpperYaw", 0.0F));
         this.entityData.set(BOOM_ANGLE, input.getFloatOr("BoomAngle", 15.0F));
         this.entityData.set(STICK_ANGLE, input.getFloatOr("StickAngle", -35.0F));
@@ -443,6 +491,7 @@ public class GroundworksExcavatorEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {
+        output.putInt("ControlMode", this.getControlMode());
         output.putFloat("UpperYaw", this.getUpperYaw());
         output.putFloat("BoomAngle", this.getBoomAngle());
         output.putFloat("StickAngle", this.getStickAngle());
