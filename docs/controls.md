@@ -10,31 +10,33 @@ Real excavators are operated with two primary joysticks:
 **Peterwolf's Groundworks Excavator** maps this real-world two-handed layout directly to your keyboard:
 - **Left Hand**: On **`WASD`**
 - **Right Hand**: On **`Arrow Keys`** (`↑`, `↓`, `←`, `→`) or `T`/`G`
-- **Thumb/Toggle**: On **`X`** to switch between **DRIVE** and **ARM** mode.
+- **Thumb/Toggle**:
+  - **`X`**: Przełącznik trybu lewej ręki: **JAZDA** (Gąsienice) $\longleftrightarrow$ **RAMIĘ** (Obrót & Przedramię)
+  - **`Z`**: Przełącznik typu łyżki: **STANDARDOWA** ($256\text{u} / 0.5\text{ m}^3$) $\longleftrightarrow$ **DUŻA MASOWA** ($512\text{u} / 1.0\text{ m}^3$, $2\times$ pojemność!)
 
 ---
 
 ## 1. TRYB RAMIENIA (Arm Mode)
 
-Both hands articulate the machine simultaneously like dual joysticks:
+Obie ręce pracują symultanicznie jak na dwóch joystickach:
 
-| Hand / Controller | Keys | Function | ISO Excavator Function |
+| Ręka / Kontroler | Klawisze | Funkcja | ISO Excavator Function |
 |---|---|---|---|
 | **Lewa ręka (WASD)** | `A` / `D` | **Obrót kabiny** w lewo / w prawo | Cab Swing Left / Right |
 | **Lewa ręka (WASD)** | `W` / `S` | **Przedramię** wysuwanie / przyciąganie | Dipper Stick Out / In |
 | **Prawa ręka (Strzałki)** | `↑` / `↓` | **Główne ramię** podnoszenie / opuszczanie | Main Boom Up / Down |
-| **Prawa ręka (Strzałki & T/G)** | `←` / `T` | **Łyżka przyciągnięta** do mnie (nabrana z towarem) | Bucket Curl In (holds cargo) |
+| **Prawa ręka (Strzałki & T/G)** | `←` / `T` | **Łyżka przyciągnięta** do mnie (zamknięta z towarem) | Bucket Curl In (holds cargo) |
 | **Prawa ręka (Strzałki & T/G)** | `→` / `G` | **Łyżka odpuszczona** od gracza (odwrócona, wysyp) | Bucket Dump Out (pours cargo) |
 
-*(Auxiliary shortcuts: `R`/`F` can also be used for Stick).*
+*(Pomocnicze skróty: `R`/`F` mogą być także używane do przedramienia).*
 
 ---
 
 ## 2. TRYB JAZDY (Drive Mode) — Przełączany klawiszem `X`
 
-Left hand drives the tracks across the terrain; Right hand keeps full control over boom & bucket elevation:
+Lewa ręka prowadzi gąsienice po terenie, a prawa ręka zachowuje pełną kontrolę nad wysokością ramienia i łyżki:
 
-| Hand / Controller | Keys | Function | Action |
+| Ręka / Kontroler | Klawisze | Funkcja | Działanie |
 |---|---|---|---|
 | **Lewa ręka (WASD)** | `W` / `S` | **Jazda gąsienicami** | Obie gąsienice do przodu / do tyłu |
 | **Lewa ręka (WASD)** | `A` / `D` | **Skręt gąsienicami** | Skręt w ruchu lub obrót w miejscu (pivot) |
@@ -43,22 +45,17 @@ Left hand drives the tracks across the terrain; Right hand keeps full control ov
 
 ---
 
-## Operating Technique
+## 3. ZMIANA ROZMIARU ŁYŻKI — Klawisz `Z`
 
-### Natural Two-Handed Digging Cycle
-1. Drive to the dig site in **Drive Mode** (`W`/`A`/`S`/`D`).
-2. Press **`X`** to switch to **Arm Mode**.
-3. **Left Hand** (`A`/`D`): Aim the cab at the excavation face.
-4. **Left Hand** (`W`): Push the dipper stick out over the soil.
-5. **Right Hand** (`↓`): Lower the boom until teeth touch the granular ground.
-6. **Dig Stroke**:
-   - **Left Hand** (`S`): Pull the stick inward toward the cab.
-   - **Right Hand** (`←` lub `T`): Simultaneously curl the bucket teeth into the ground (przyciągnięcie do mnie $\to$ nabranie z towarem).
-   *(The teeth slice through the terrain, and the swept volume fills the bucket).*
-7. **Lift & Carry**:
-   - **Right Hand** (`↑`): Raise the boom to lift the loaded bucket out of the trench.
-   - **Left Hand** (`A`/`D`): Rotate the turntable cab towards the dump site or truck bed.
-   *(Bucket remains curled inward, holding the cargo securely with zero spillage).*
-8. **Dump**:
-   - **Right Hand** (`→` lub `G`): Push the bucket outward away from the player (odpuszczenie od gracza $\to$ pełne odwrócenie). Soil pours from the lip into Groundworks terrain.
-9. Press **`X`** to return to **Drive Mode** and reposition.
+Klawisz **`Z`** natychmiast zmienia osprzęt roboczy koparki za pomocą hydraulicznego szybkozłącza:
+
+1. **Łyżka Standardowa Skrawania (256 jednostek / $0.500\text{ m}^3$)**:
+   - Szerokość 0.75m, 5 utwardzanych zębów dłutowych.
+   - Idealna do precyzyjnych wykopów liniowych, fundamentów i rowów.
+   - Przepustowość kopania: 32 jednostki/tick.
+
+2. **Łyżka Duża Masowa / Podsiębierna ($512\text{ jednostek} / 1.000\text{ m}^3$ — $2\times$ większa!)**:
+   - Szerokość 1.25m, 7 utwardzanych zębów, głęboka czasza o podwójnej kubaturze (cały pełny blok Minecrafta!).
+   - Idealna do masowych robót ziemnych, załadunku urobku i formowania wałów.
+   - Przepustowość kopania i wysypu: aż 64 jednostki/tick ($2\times$ szybszy urobek!).
+   - Wygląd modelu w grze zmienia się natychmiast na potężniejszą, szerszą łyżkę.

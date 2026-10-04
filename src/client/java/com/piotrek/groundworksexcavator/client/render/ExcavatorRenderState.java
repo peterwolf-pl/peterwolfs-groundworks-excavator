@@ -23,6 +23,7 @@ public class ExcavatorRenderState extends EntityRenderState {
     public int storedUnits;
     public int capacity;
     public float fillRatio;
+    public int bucketType;
 
     public boolean isDigging;
     public boolean isDumping;

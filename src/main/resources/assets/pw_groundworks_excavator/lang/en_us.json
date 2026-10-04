@@ -3,10 +3,13 @@
   "entity.pw_groundworks_excavator.excavator": "Groundworks Excavator",
   "key.categories.pw_groundworks_excavator": "Groundworks Excavator",
   "key.pw_groundworks_excavator.toggle_mode": "Toggle Drive/Arm Mode (X)",
+  "key.pw_groundworks_excavator.toggle_bucket": "Switch Bucket Variant (Z)",
   "key.pw_groundworks_excavator.boom_up": "Raise Boom (Up Arrow)",
   "key.pw_groundworks_excavator.boom_down": "Lower Boom (Down Arrow)",
   "key.pw_groundworks_excavator.bucket_curl": "Curl Bucket In (Left Arrow)",
   "key.pw_groundworks_excavator.bucket_dump": "Dump Bucket Out (Right Arrow)",
-  "key.pw_groundworks_excavator.stick_out": "Extend Stick (R)",
-  "key.pw_groundworks_excavator.stick_in": "Retract Stick (F)"
+  "key.pw_groundworks_excavator.cab_left": "Rotate Cab Left (A)",
+  "key.pw_groundworks_excavator.cab_right": "Rotate Cab Right (D)",
+  "key.pw_groundworks_excavator.stick_out": "Extend Stick (W / R)",
+  "key.pw_groundworks_excavator.stick_in": "Retract Stick (S / F)"
 }

@@ -14,6 +14,7 @@ public final class ExcavatorKeyBindings {
             KeyMapping.Category.register(GroundworksExcavatorMod.id("controls"));
 
     public static KeyMapping KEY_TOGGLE_MODE;
+    public static KeyMapping KEY_TOGGLE_BUCKET;
     public static KeyMapping KEY_BOOM_UP;
     public static KeyMapping KEY_BOOM_DOWN;
     public static KeyMapping KEY_BUCKET_CURL;
@@ -31,6 +32,14 @@ public final class ExcavatorKeyBindings {
                 "key.pw_groundworks_excavator.toggle_mode",
                 InputConstants.Type.KEYBOARD,
                 InputConstants.KEY_X,
+                CATEGORY
+        ));
+
+        // Bucket Variant Switch (Key Z)
+        KEY_TOGGLE_BUCKET = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.toggle_bucket",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_Z,
                 CATEGORY
         ));
 

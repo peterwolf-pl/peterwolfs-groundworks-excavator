@@ -75,6 +75,7 @@ public class GroundworksExcavatorMod implements ModInitializer {
                         if (player.getVehicle() instanceof GroundworksExcavatorEntity excavator
                                 && excavator.isDriver(player)) {
                             excavator.setControlMode(payload.mode());
+                            excavator.setBucketType(payload.bucketType());
                             excavator.setControlInputs(
                                     payload.throttle(),
                                     payload.steer(),

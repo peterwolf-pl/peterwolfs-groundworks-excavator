@@ -22,8 +22,10 @@ import net.minecraft.sounds.SoundEvents;
 public final class ExcavatorInputHandler {
 
     private static boolean isDriveMode = true;
+    private static int currentBucketType = 0; // 0 = Standard (256u), 1 = Large (512u)
 
     private static int lastMode;
+    private static int lastBucketType;
     private static float lastThrottle;
     private static float lastSteer;
     private static float lastCabYaw;
@@ -52,6 +54,16 @@ public final class ExcavatorInputHandler {
                 client.player.sendSystemMessage(
                         Component.literal("§6[Koparka] Tryb: " + (isDriveMode ? "§a§lJAZDA (Drive)" : "§b§lRAMIĘ (Excavator Arm)"))
                 );
+            }
+
+            // 1b. Check Bucket Switch (Key Z)
+            while (ExcavatorKeyBindings.KEY_TOGGLE_BUCKET != null && ExcavatorKeyBindings.KEY_TOGGLE_BUCKET.consumeClick()) {
+                currentBucketType = (currentBucketType == 0) ? 1 : 0;
+                client.player.playSound(SoundEvents.ANVIL_USE, 0.7F, (currentBucketType == 1) ? 0.85F : 1.15F);
+                String msg = (currentBucketType == 1)
+                        ? "§6[Koparka] Łyżka: §e§lDUŻA MASOWA (512u / 1.0 m³ — 2x pojemność!)"
+                        : "§6[Koparka] Łyżka: §b§lSTANDARDOWA SKRAWANIA (256u / 0.5 m³)";
+                client.player.sendSystemMessage(Component.literal(msg));
             }
 
             // 2. Read Left Hand inputs (WASD from KeyMapping or PlayerInput)
@@ -128,6 +140,7 @@ public final class ExcavatorInputHandler {
             if (stickInKey) stick -= 1.0F;
 
             boolean changed = currentMode != lastMode
+                    || currentBucketType != lastBucketType
                     || throttle != lastThrottle
                     || steer != lastSteer
                     || cabYaw != lastCabYaw
@@ -137,10 +150,11 @@ public final class ExcavatorInputHandler {
 
             if (changed || --keepaliveTicks <= 0) {
                 ClientPlayNetworking.send(new ExcavatorInputPayload(
-                        currentMode, throttle, steer, cabYaw, boom, stick, bucket
+                        currentMode, currentBucketType, throttle, steer, cabYaw, boom, stick, bucket
                 ));
 
                 lastMode = currentMode;
+                lastBucketType = currentBucketType;
                 lastThrottle = throttle;
                 lastSteer = steer;
                 lastCabYaw = cabYaw;

@@ -64,9 +64,10 @@ public final class BucketExcavationController {
         GranularMaterial lastMaterial = GranularMaterial.EMPTY;
         Vec3 lastHit = sweep.hitLocation();
         Set<BlockPos> processedBlocks = new HashSet<>();
+        int maxIntake = (bucket.capacity() >= 512) ? 64 : MAX_UNITS_PER_TICK;
 
         for (SweptBucketVolume.ToothContact contact : sweep.contacts()) {
-            if (bucket.remainingCapacity() <= 0 || totalExcavated >= MAX_UNITS_PER_TICK) {
+            if (bucket.remainingCapacity() <= 0 || totalExcavated >= maxIntake) {
                 break;
             }
 
@@ -75,7 +76,7 @@ public final class BucketExcavationController {
                 continue;
             }
 
-            int needed = Math.min(bucket.remainingCapacity(), MAX_UNITS_PER_TICK - totalExcavated);
+            int needed = Math.min(bucket.remainingCapacity(), maxIntake - totalExcavated);
             if (needed <= 0) {
                 break;
             }

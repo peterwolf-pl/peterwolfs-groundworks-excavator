@@ -133,4 +133,26 @@ public class BucketContainerTest {
         assertEquals(GranularMaterialRegistry.GRAVEL, loaded.storedMaterial());
         assertEquals(GranularMaterialRegistry.GRAVEL.id(), loaded.materialId());
     }
+
+    @Test
+    @DisplayName("Switching to 2x capacity bucket (512 units) expands capacity and preserves material")
+    void testLargeBucketCapacityExpansion() {
+        BucketMaterialContainer bucket = new BucketMaterialContainer(256);
+        bucket.acceptMaterial(GranularMaterialRegistry.DIRT, 256);
+        assertEquals(256, bucket.storedUnits());
+        assertFalse(bucket.hasRoom());
+
+        // Switch to large bucket (512 units)
+        bucket.setCapacity(512);
+        assertEquals(512, bucket.capacity());
+        assertEquals(256, bucket.storedUnits());
+        assertTrue(bucket.hasRoom());
+        assertEquals(256, bucket.remainingCapacity());
+
+        // Fill remaining 256 units
+        int added = bucket.acceptMaterial(GranularMaterialRegistry.DIRT, 300);
+        assertEquals(256, added);
+        assertEquals(512, bucket.storedUnits());
+        assertEquals(1.0F, bucket.fillRatio());
+    }
 }
