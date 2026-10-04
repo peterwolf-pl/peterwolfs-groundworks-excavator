@@ -5,6 +5,8 @@ import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
+import com.piotrek.groundworksexcavator.automation.AutoTrenchController;
+import com.piotrek.groundworksexcavator.excavation.ArmTerrainContactController;
 import com.piotrek.groundworksexcavator.excavation.BucketDumpingController;
 import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
@@ -85,10 +87,13 @@ public class GroundworksExcavatorEntity extends Entity {
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> IS_DUMPING =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> MACHINE_LOAD =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
 
     // ── Components ───────────────────────────────────────────────────
     private final BucketMaterialContainer bucket = new BucketMaterialContainer();
     private final TrackMovementController trackController = new TrackMovementController();
+    private final AutoTrenchController autoTrenchController = new AutoTrenchController();
 
     // ── Input & Kinematics State (Server-Authoritative) ───────────────
     private float inputThrottle;
@@ -134,6 +139,7 @@ public class GroundworksExcavatorEntity extends Entity {
         builder.define(VEHICLE_ROLL, 0.0F);
         builder.define(IS_DIGGING, false);
         builder.define(IS_DUMPING, false);
+        builder.define(MACHINE_LOAD, 0.0F);
     }
 
     @Override
@@ -164,12 +170,27 @@ public class GroundworksExcavatorEntity extends Entity {
         }
 
         ServerLevel serverLevel = (ServerLevel) this.level();
+        Entity driver = this.getControllingPassenger();
+
+        // Test-only automatic trench cycle. The controller writes through the same bounded
+        // input path as a player, so normal hydraulics, contact checks, excavation, dumping,
+        // movement, and material conservation remain authoritative.
+        if (this.autoTrenchController.isActive()) {
+            AutoTrenchController.Controls controls = this.autoTrenchController.tick(
+                    new AutoTrenchController.Snapshot(
+                            driver != null,
+                            this.getUpperYaw(), this.getBoomAngle(),
+                            this.getStickAngle(), this.getBucketAngle(),
+                            this.getStoredUnits(), this.position(), this.getYRot()));
+            this.setControlInputs(
+                    controls.throttle(), controls.steer(), controls.cabYaw(),
+                    controls.boom(), controls.stick(), controls.bucket());
+        }
 
         // 1. Process driver input decay
         if (this.inputFreshTicks > 0) {
             this.inputFreshTicks--;
         } else {
-            Entity driver = this.getControllingPassenger();
             if (driver instanceof ServerPlayer player && this.isDriveMode()) {
                 var input = player.getLastClientInput();
                 this.inputThrottle = input.forward() ? 1.0F : input.backward() ? -1.0F : 0.0F;
@@ -202,20 +223,99 @@ public class GroundworksExcavatorEntity extends Entity {
                 ArmKinematics.BUCKET_MAX
         );
 
-        this.entityData.set(UPPER_YAW, newCabYaw);
-        this.entityData.set(BOOM_ANGLE, newBoom);
-        this.entityData.set(STICK_ANGLE, newStick);
-        this.entityData.set(BUCKET_ANGLE, newBucket);
+        ArmTerrainContactController.JointAngles constrained =
+                ArmTerrainContactController.constrain(
+                        serverLevel,
+                        this.position(),
+                        this.getYRot(),
+                        this.getVehiclePitch(),
+                        this.getVehicleRoll(),
+                        this.getBucketType(),
+                        new ArmTerrainContactController.JointAngles(
+                                this.getUpperYaw(), this.getBoomAngle(),
+                                this.getStickAngle(), this.getBucketAngle()),
+                        new ArmTerrainContactController.JointAngles(
+                                newCabYaw, newBoom, newStick, newBucket));
+
+        this.entityData.set(UPPER_YAW, constrained.cabin());
+        this.entityData.set(BOOM_ANGLE, constrained.boom());
+        this.entityData.set(STICK_ANGLE, constrained.stick());
+        this.entityData.set(BUCKET_ANGLE, constrained.bucket());
+
+        // 2b. Evaluate Machine Resistance & Hydraulic Overload
+        boolean cabinBlocked = (newCabYaw != constrained.cabin()) && Math.abs(this.inputCabYaw) > 0.01F;
+        boolean boomBlocked = (newBoom != constrained.boom()) && Math.abs(this.inputBoom) > 0.01F;
+        boolean stickBlocked = (newStick != constrained.stick()) && Math.abs(this.inputStick) > 0.01F;
+        boolean bucketBlocked = (newBucket != constrained.bucket()) && Math.abs(this.inputBucket) > 0.01F;
+        boolean armRestricted = cabinBlocked || boomBlocked || stickBlocked || bucketBlocked;
+
+        float targetLoad = 0.0F;
+        if (armRestricted) {
+            // High hydraulic overload when attempting to force steel into solid terrain
+            targetLoad = 1.0F;
+        } else if (this.isDigging()) {
+            targetLoad = 0.55F;
+        } else if (Math.abs(this.inputThrottle) > 0.01F || Math.abs(this.inputSteer) > 0.01F) {
+            targetLoad = 0.30F;
+        } else if (Math.abs(this.inputBoom) > 0.01F || Math.abs(this.inputStick) > 0.01F || Math.abs(this.inputBucket) > 0.01F) {
+            targetLoad = 0.20F;
+        }
+
+        // Smooth load ramp up and decay
+        float currentLoad = this.getMachineLoad();
+        float updatedLoad = Mth.lerp(armRestricted ? 0.45F : 0.15F, currentLoad, targetLoad);
+        if (updatedLoad < 0.01F) updatedLoad = 0.0F;
+        this.entityData.set(MACHINE_LOAD, updatedLoad);
+
+        BucketPose preMovePose = ArmKinematics.computeBucketPose(
+                this.position(), this.getYRot(),
+                this.getVehiclePitch(), this.getVehicleRoll(),
+                constrained.cabin(), constrained.boom(), constrained.stick(), constrained.bucket(),
+                this.getBucketType());
+        boolean teethEmbedded = ArmTerrainContactController.areTeethEmbedded(
+                serverLevel, preMovePose);
+
+        float allowedThrottle = this.inputThrottle;
+        float allowedSteer = this.inputSteer;
+        if (teethEmbedded) {
+            this.trackController.lockDifferentialMotion();
+            allowedSteer = 0.0F;
+            double yawRadians = Math.toRadians(this.getYRot());
+            Vec3 requestedTravel = new Vec3(
+                    -Math.sin(yawRadians) * allowedThrottle,
+                    0.0D,
+                    Math.cos(yawRadians) * allowedThrottle);
+            if (ArmTerrainContactController.isBlockedLateralDrag(
+                    true, requestedTravel, preMovePose.forwardCutting())) {
+                allowedThrottle = 0.0F;
+                this.trackController.stopMotion();
+            }
+        }
 
         // 3. Update differential track physics and terrain conformity
         TrackMovementController.TrackState trackState = this.trackController.tick(
                 serverLevel,
                 this.position(),
                 this.getYRot(),
-                this.inputThrottle,
-                this.inputSteer,
+                allowedThrottle,
+                allowedSteer,
                 this.onGround()
         );
+
+        Vec3 candidateBase = this.position().add(trackState.forwardDelta());
+        float candidateYaw = this.getYRot() + trackState.yawDeltaDegrees();
+        if (!ArmTerrainContactController.allowsMachineMotion(
+                serverLevel,
+                this.position(), this.getYRot(),
+                this.getVehiclePitch(), this.getVehicleRoll(),
+                candidateBase, candidateYaw,
+                trackState.pitch(), trackState.roll(),
+                this.getBucketType(), constrained)) {
+            this.trackController.stopMotion();
+            trackState = new TrackMovementController.TrackState(
+                    0.0F, 0.0F, Vec3.ZERO, 0.0F,
+                    this.getVehiclePitch(), this.getVehicleRoll());
+        }
 
         this.entityData.set(TRACK_LEFT_SPEED, trackState.leftSpeed());
         this.entityData.set(TRACK_RIGHT_SPEED, trackState.rightSpeed());
@@ -262,8 +362,12 @@ public class GroundworksExcavatorEntity extends Entity {
         }
 
         // 5. Simulate terrain excavation through Groundworks API
-        BucketExcavationController.ExcavationTickResult digResult =
-                BucketExcavationController.tick(serverLevel, this.bucket, this.previousBucketPose, this.currentBucketPose);
+        BucketExcavationController.ExcavationTickResult digResult = BucketExcavationController.tick(
+                serverLevel,
+                this.bucket,
+                this.previousBucketPose,
+                this.currentBucketPose,
+                this.autoTrenchController.prefersBucketIntake());
 
         this.lastExcavatedUnits = digResult.unitsExcavated();
         this.entityData.set(IS_DIGGING, digResult.excavated());
@@ -302,6 +406,30 @@ public class GroundworksExcavatorEntity extends Entity {
         this.inputStick = Mth.clamp(stickInput, -1.0F, 1.0F);
         this.inputBucket = Mth.clamp(bucketInput, -1.0F, 1.0F);
         this.inputFreshTicks = 10;
+    }
+
+    public void startAutoTrench() {
+        if (this.level().isClientSide()) return;
+        this.setBucketType(BUCKET_LARGE);
+        this.setControlMode(MODE_EXCAVATOR);
+        this.autoTrenchController.start();
+    }
+
+    public void stopAutoTrench() {
+        this.autoTrenchController.stop();
+        this.setControlInputs(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+    }
+
+    public boolean isAutoTrenchActive() {
+        return this.autoTrenchController.isActive();
+    }
+
+    public AutoTrenchController.Phase getAutoTrenchPhase() {
+        return this.autoTrenchController.phase();
+    }
+
+    public int getAutoTrenchCompletedSections() {
+        return this.autoTrenchController.completedSections();
     }
 
     // ── Driver & Passenger Interaction ────────────────────────────────
@@ -412,6 +540,10 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     // ── Getters for Renderers & Controllers ───────────────────────────
+
+    public float getMachineLoad() {
+        return this.entityData.get(MACHINE_LOAD);
+    }
 
     public boolean isOperating() {
         return this.getFirstPassenger() != null

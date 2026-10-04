@@ -165,6 +165,19 @@ def create_excavator_texture():
     # 23. "teeth": u=124, v=152, w=16, h=8
     draw.rectangle([124, 152, 124 + 16, 152 + 8], fill=c_teeth_core)
 
+    # 24. Heavy Tensioner Idler Wheel & Recoil Spring Hub (Bulldozer tensioner): u=160, v=152, w=48, h=28
+    draw.rectangle([160, 152, 160 + 48, 152 + 28], fill=c_iron_light)
+    draw.rectangle([162, 154, 160 + 46, 152 + 26], fill=c_dark_iron)
+    # Heavy spring coils & central grease cylinder tensioner
+    draw.rectangle([166, 158, 160 + 40, 152 + 22], fill=c_track_roller)
+    for x in range(168, 160 + 38, 4):
+        draw.line([(x, 158), (x + 2, 152 + 22)], fill=(210, 160, 20, 255), width=2)
+
+    # 25. Dual Flanged Heavy Road Rollers: u=214, v=152, w=44, h=24
+    draw.rectangle([214, 152, 214 + 44, 152 + 24], fill=c_track_roller)
+    draw.rectangle([216, 154, 214 + 42, 152 + 22], outline=c_iron_light)
+    draw.ellipse([228, 158, 244, 170], fill=c_dark_iron, outline=c_iron_light)
+
     os.makedirs("src/main/resources/assets/pw_groundworks_excavator/textures/entity", exist_ok=True)
     img.save("src/main/resources/assets/pw_groundworks_excavator/textures/entity/excavator.png")
     print("512x512 non-overlapping master entity texture created successfully.")

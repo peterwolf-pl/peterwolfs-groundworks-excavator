@@ -26,16 +26,24 @@ Execute the test suite:
    - `testTurntableRotation`: Verifies that rotating the turntable $90^\circ$ correctly transforms the arm heading into world coordinates.
    - `testDriverSeatTurntableOffset`: Asserts that the operator seat rigidly rotates with the cab turntable.
    - `testDumpTiltAngle`: Asserts that curled/level bucket angles do not trigger dumping ($< 30^\circ$), whereas downward-tilted angles ($\ge 30^\circ$) trigger dump flow.
+   - `testArmCollisionSamples`: Checks dense, finite steel samples and verifies that cutting teeth are not part of the blocking arm volume.
 
-3. **`SweptVolumeTest`**
+3. **`ArmTerrainContactControllerTest`**
+   - Rejects new or unchanged steel penetration.
+   - Allows movement that reduces existing penetration.
+   - Rejects lateral and vertical-tooth drag while teeth are embedded.
+   - Checks deterministic one-cell surface-push direction.
+
+4. **`SweptVolumeTest`**
    - `testStationaryBucket`: Verifies that a stationary bucket generates zero excavation volume.
    - `testTeleportationDiscontinuity`: Verifies that sudden jumps ($> 2.5\text{ m}$) are discarded to protect terrain integrity.
    - `testForwardCuttingSweep`: Confirms that forward motion of the teeth produces valid swept candidate block positions.
 
-4. **`DifferentialSteeringTest`**
+5. **`DifferentialSteeringTest`**
    - `testForwardThrottle`: Asserts equal track speeds and zero yaw delta during straight driving.
    - `testPivotTurn`: Asserts opposing track speeds and positive angular velocity during in-place pivot turns.
    - `testBraking`: Confirms smooth deceleration to a complete halt when inputs are released.
+   - `testGranularContactStopsTrackMotion`: Confirms immediate track and yaw stop for blocked embedded-tooth movement.
 
 ---
 
@@ -47,14 +55,18 @@ The mod features automated visual regression tests executing directly in Minecra
 ./gradlew runClientGameTest
 ```
 
-This task launches an automated graphical singleplayer test instance, constructs a clean testing arena, spawns the excavator entity, moves the camera to 6 deterministic perspectives, articulates the arm, and saves clean regression screenshots into `visual-tests/current/`:
+This task launches an automated graphical singleplayer test instance, constructs a clean testing arena, spawns the excavator entity, moves the camera to deterministic perspectives, articulates the arm, and saves regression screenshots into `visual-tests/current/`.
+
+The `excavator_08_surface_push_mound.png` scene also executes a real Groundworks surface displacement. It fails the GameTest if no gravel moves or if source-plus-destination material changes.
 
 1. `excavator_01_profile_isometric.png`: Front-left isometric view of the full vehicle.
 2. `excavator_02_cab_and_beacon.png`: Close-up of operator cab and the flashing yellow warning beacon.
 3. `excavator_03_counterweight_hazard.png`: Rear counterweight with safety hazard stripes and exhaust stack.
 4. `excavator_04_tracks_and_rollers.png`: Crawler tracks with drive sprockets and guide rollers.
-5. `excavator_05_digging_posture.png`: Working excavation posture with boom lowered and teeth cutting.
-6. `excavator_06_dump_posture.png`: Rotated turntable cab and inverted bucket dumping pose.
+5. `excavator_05_player_in_glass_cab.png`: Operator seated in the cab.
+6. `excavator_06_in_cab_work_area_view.png`: Operator view through the windshield.
+7. `excavator_07_large_bucket_digging.png`: Large-bucket digging posture.
+8. `excavator_08_surface_push_mound.png`: Conserved gravel displacement and small mound.
 
 ---
 
@@ -80,8 +92,18 @@ To perform manual acceptance testing in game:
 6. **Digging**:
    - Lower teeth into dirt and curl inward (`T`) while pulling stick in (`F`).
    - Observe terrain microvoxels physically vanishing and bucket filling up on the HUD overlay.
-7. **Carrying & Dumping**:
+7. **Granular Contact**:
+   - Try to lower the boom or stick body into gravel. Confirm that the steel stops before entering it.
+   - Insert only the teeth, then try to rotate the cab or pivot the tracks sideways. Confirm that lateral drag stops.
+   - Pull the teeth back along their cutting plane. Confirm that extraction remains possible.
+   - Skim the teeth horizontally across the top. Confirm that the bucket stays empty and a small mound forms ahead.
+8. **Carrying & Dumping**:
    - Raise boom and rotate cab $90^\circ$.
    - Uncurl bucket (`G`) until tilt passes $30^\circ$.
    - Confirm granular material pours out at the bucket lip and forms a conical relaxing pile on the ground.
    - Run `/excavator debug` to verify zero duplicated or lost material units.
+9. **Engine audio**:
+   - Mount the excavator and confirm the positional diesel loop starts.
+   - Drive and pivot. Confirm pitch and volume rise smoothly with track speed.
+   - Dismount after the tracks stop. Confirm the loop stops.
+   - Move away and confirm linear distance attenuation.

@@ -31,6 +31,19 @@ public class TrackMovementController {
             float roll
     ) {}
 
+    /** Stops differential yaw immediately while preserving straight-line momentum. */
+    public void lockDifferentialMotion() {
+        float average = (leftTrackSpeed + rightTrackSpeed) * 0.5F;
+        leftTrackSpeed = average;
+        rightTrackSpeed = average;
+    }
+
+    /** Stops both tracks when their motion would drag embedded teeth sideways. */
+    public void stopMotion() {
+        leftTrackSpeed = 0.0F;
+        rightTrackSpeed = 0.0F;
+    }
+
     public TrackState tick(
             ServerLevel level,
             Vec3 currentPos,

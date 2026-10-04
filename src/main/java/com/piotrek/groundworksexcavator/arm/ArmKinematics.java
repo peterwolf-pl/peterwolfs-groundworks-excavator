@@ -142,6 +142,53 @@ public final class ArmKinematics {
     }
 
     /**
+     * Samples the steel boom and stick for authoritative terrain contact.
+     * The bucket is a working tool and must remain free to enter material during a digging stroke.
+     */
+    public static List<Vec3> computeArmCollisionSamples(
+            Vec3 basePos,
+            float baseYaw,
+            float basePitch,
+            float baseRoll,
+            float upperYaw,
+            float boomAngle,
+            float stickAngle
+    ) {
+        Matrix4f boomMatrix = computeTurntableMatrix(basePos, baseYaw, basePitch, baseRoll, upperYaw);
+        boomMatrix.translate(5.5f / 16.0f, -6.0f / 16.0f, 5.0f / 16.0f);
+        boomMatrix.rotate(new Quaternionf().rotationZYX(0.0f, 0.0f, (float) Math.toRadians(boomAngle)));
+
+        List<Vec3> samples = new ArrayList<>();
+        sampleArmSegment(samples, boomMatrix, 56.0f / 16.0f);
+
+        Matrix4f stickMatrix = new Matrix4f(boomMatrix);
+        stickMatrix.translate(0.0f, 0.0f, 56.0f / 16.0f);
+        stickMatrix.rotate(new Quaternionf().rotationZYX(0.0f, 0.0f, (float) Math.toRadians(stickAngle)));
+        sampleArmSegment(samples, stickMatrix, 38.0f / 16.0f);
+        return List.copyOf(samples);
+    }
+
+    private static void sampleArmSegment(List<Vec3> samples, Matrix4f matrix, float length) {
+        int steps = Math.max(2, (int) Math.ceil(length / 0.4f));
+        float[][] crossSection = {
+                { 0.0f, 0.0f }, { -0.18f, 0.0f }, { 0.18f, 0.0f },
+                { 0.0f, -0.12f }, { 0.0f, 0.12f }
+        };
+        for (int step = 1; step <= steps; step++) {
+            float z = length * step / steps;
+            for (float[] offset : crossSection) {
+                samples.add(transformPoint(matrix, offset[0], offset[1], z));
+            }
+        }
+    }
+
+    private static Vec3 transformPoint(Matrix4f matrix, float x, float y, float z) {
+        Vector4f point = new Vector4f(x, y, z, 1.0f);
+        matrix.transform(point);
+        return new Vec3(point.x, point.y, point.z);
+    }
+
+    /**
      * Computes the full authoritative bucket pose matching the visual model 1:1.
      *
      * @param bucketType 0 = Standard (256u), 1 = Large Bulk (512u)

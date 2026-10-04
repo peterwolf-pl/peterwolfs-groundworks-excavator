@@ -11,5 +11,6 @@
   "key.pw_groundworks_excavator.cab_left": "Obrót kabiny w lewo (A)",
   "key.pw_groundworks_excavator.cab_right": "Obrót kabiny w prawo (D)",
   "key.pw_groundworks_excavator.stick_out": "Wysuń przedramię (W / R)",
-  "key.pw_groundworks_excavator.stick_in": "Przyciągnij przedramię (S / F)"
+  "key.pw_groundworks_excavator.stick_in": "Przyciągnij przedramię (S / F)",
+  "subtitles.pw_groundworks_excavator.engine_loop": "Warkot silnika koparki"
 }

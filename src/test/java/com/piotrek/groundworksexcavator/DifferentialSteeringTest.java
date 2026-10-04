@@ -51,6 +51,20 @@ public class DifferentialSteeringTest {
     }
 
     @Test
+    @DisplayName("Granular contact can stop sideways track motion immediately")
+    void testGranularContactStopsTrackMotion() {
+        TrackMovementController controller = new TrackMovementController();
+        controller.setTrackSpeeds(-0.08F, 0.08F);
+
+        controller.stopMotion();
+        TrackState state = controller.tick(null, Vec3.ZERO, 0.0F, 0.0F, 0.0F, true);
+
+        assertEquals(0.0F, state.leftSpeed(), 0.001F);
+        assertEquals(0.0F, state.rightSpeed(), 0.001F);
+        assertEquals(0.0F, state.yawDeltaDegrees(), 0.001F);
+    }
+
+    @Test
     @DisplayName("Neutral throttle and steering decelerates tracks to zero")
     void testBraking() {
         TrackMovementController controller = new TrackMovementController();

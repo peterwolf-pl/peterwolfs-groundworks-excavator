@@ -46,6 +46,25 @@ public class ArmKinematicsTest {
     }
 
     @Test
+    @DisplayName("Arm collision samples cover boom and stick while leaving the working bucket free")
+    void testArmCollisionSamples() {
+        Vec3 base = new Vec3(3.0D, 10.0D, -2.0D);
+        var samples = ArmKinematics.computeArmCollisionSamples(
+                base, 15.0F, 0.0F, 0.0F, 25.0F, 10.0F, -30.0F);
+        BucketPose pose = ArmKinematics.computeBucketPose(
+                base, 15.0F, 0.0F, 0.0F, 25.0F, 10.0F, -30.0F, -15.0F, 0);
+
+        assertEquals(75, samples.size(),
+                "Only boom and stick steel should block motion; the working bucket must enter material");
+        assertTrue(samples.stream().allMatch(point ->
+                Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z)));
+        for (Vec3 tooth : pose.teethPoints()) {
+            assertTrue(samples.stream().noneMatch(sample -> sample.distanceToSqr(tooth) < 1.0E-8D),
+                    "Cutting teeth must remain outside steel collision samples");
+        }
+    }
+
+    @Test
     @DisplayName("Digging reach: arm at downward extension reaches deep below ground")
     void testDiggingDepthReach() {
         Vec3 base = new Vec3(0.0D, 10.0D, 0.0D); // Base at Y=10

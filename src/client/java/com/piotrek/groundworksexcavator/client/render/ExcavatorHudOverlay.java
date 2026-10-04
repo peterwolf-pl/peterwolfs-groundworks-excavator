@@ -13,10 +13,15 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 
 /**
- * In-cab telemetry and instrument HUD displayed while operating the excavator.
+ * Compact in-cab telemetry and instrument HUD displayed while operating the excavator.
  *
- * <p>Reflects two-handed ISO controls:
- * Left hand (WASD) and Right hand (Arrows).
+ * <p>Features:
+ * <ul>
+ *   <li>Compact frame sized exactly to the telemetry bars</li>
+ *   <li>Primary bar: Bucket capacity fill progress (Cyan)</li>
+ *   <li>Secondary bar: Machine hydraulic load / resistance (Green -> Orange -> Red overload)</li>
+ *   <li>Mode, angles, and control hints</li>
+ * </ul>
  */
 public class ExcavatorHudOverlay implements HudElement {
 
@@ -36,62 +41,61 @@ public class ExcavatorHudOverlay implements HudElement {
         }
 
         Font font = client.font;
-        int x = 10;
-        int y = 10;
-        int width = 270;
-        int height = 72;
+        int x = 8;
+        int y = 8;
+        int barWidth = 140;
+        int width = barWidth + 66; // Compact width: 206px
+        int height = 64;           // Compact height: 64px
 
-        // Semi-transparent background
-        extractor.fill(x - 4, y - 4, x + width, y + height, 0x88000000);
-        extractor.outline(x - 4, y - 4, width + 4, height + 4, 0xFFFFAA00);
+        // Semi-transparent compact background
+        extractor.fill(x - 3, y - 3, x + width, y + height, 0x88000000);
+        extractor.outline(x - 3, y - 3, width + 3, height + 3, 0xFFFFAA00);
 
-        // Header
-        extractor.text(font, "§6§lPeterwolf's Groundworks Excavator", x, y, 0xFFFFFF, true);
-
-        // Active Control Mode (Key X) & Status
+        // Header: Mode [X] & Status
         boolean drive = ExcavatorInputHandler.isDriveMode();
-        String modeStr = drive ? "§a§lJAZDA (Drive)" : "§b§lRAMIĘ (Excavator)";
-        extractor.text(font, "Tryb [X]: " + modeStr, x, y + 11, 0xFFFFFF, true);
+        String modeStr = drive ? "§aJAZDA" : "§bRAMIĘ";
+        String status = excavator.isDigging() ? "§aKOPANIE" :
+                excavator.isDumping() ? "§eWYSYP" : "§7GOTOWA";
+        extractor.text(font, "§6§lKoparka §7[X]: " + modeStr, x, y, 0xFFFFFF, true);
+        extractor.text(font, status, x + width - font.width(status) - 2, y, 0xFFFFFF, true);
 
-        String status = excavator.isDigging() ? "§a§lKOPANIE" :
-                excavator.isDumping() ? "§e§lWYSYP" : "§7GOTOWA";
-        extractor.text(font, "Status: " + status, x + 165, y + 11, 0xCCCCCC, true);
-
-        // Material & Capacity + Bucket Type Indicator
+        // ── 1. BUCKET FILL BAR ──
         String matName = excavator.getBucketMaterialId() > 0 ? excavator.getBucketMaterial().name().toUpperCase() : "PUSTO";
         int units = excavator.getStoredUnits();
         int cap = excavator.getBucketCapacity();
-        double m3 = GroundworksExcavationAdapter.unitsToCubicMeters(units);
+        float fillRatio = (float) units / (float) Math.max(1, cap);
         boolean isLarge = excavator.getBucketType() == 1;
-        String typeLabel = isLarge ? "§e[DUŻA 512u]" : "§b[STD 256u]";
-        extractor.text(font, String.format("Łyżka %s: §f%s §7(%d/%d = %.3f m³)", typeLabel, matName, units, cap, m3), x, y + 22, 0xCCCCCC, true);
+        String typeLabel = isLarge ? "§e512u" : "§b256u";
 
-        // Fill progress bar
-        int barWidth = 160;
-        int barHeight = 4;
-        int barY = y + 33;
-        float ratio = (float) units / (float) Math.max(1, cap);
-        extractor.fill(x, barY, x + barWidth, barY + barHeight, 0xFF333333);
-        int fillWidth = Math.round(barWidth * ratio);
+        int bar1Y = y + 12;
+        extractor.text(font, String.format("Łyżka %s: §f%s", typeLabel, matName), x, bar1Y, 0xCCCCCC, true);
+        int bar1BoxY = bar1Y + 9;
+        extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
+        int fillWidth = Math.round(barWidth * fillRatio);
         if (fillWidth > 0) {
-            extractor.fill(x, barY, x + fillWidth, barY + barHeight, 0xFF00AAFF);
+            extractor.fill(x, bar1BoxY, x + fillWidth, bar1BoxY + 4, 0xFF00AAFF);
         }
-        extractor.text(font, String.format("%.0f%%", ratio * 100.0F), x + barWidth + 6, barY - 2, 0xAAAAAA, true);
+        extractor.text(font, String.format("%.0f%%", fillRatio * 100.0F), x + barWidth + 4, bar1BoxY - 2, 0xAAAAAA, true);
 
-        // Arm Angles
-        extractor.text(font, String.format("Boom: §f%.0f°§7 | Stick: §f%.0f°§7 | Łyżka: §f%.0f°§7 | Kabina: §f%.0f°",
-                excavator.getBoomAngle(), excavator.getStickAngle(), excavator.getBucketAngle(), excavator.getUpperYaw()),
-                x, y + 43, 0xAAAAAA, true);
+        // ── 2. HYDRAULIC LOAD & OVERLOAD BAR ──
+        float load = excavator.getMachineLoad();
+        int bar2Y = bar1BoxY + 7;
+        String loadLabel = load > 0.85F ? "§c§lOPÓR / PRZECIĄŻENIE" :
+                load > 0.50F ? "§eObciążenie" : "§7Obciążenie";
+        extractor.text(font, loadLabel, x, bar2Y, 0xCCCCCC, true);
 
-        // Two-handed Controls Hint
-        String handHint = drive
-                ? "§fLewa [WASD]: §aGąsienice §7| §fPrawa [Strzałki]: §eRamię & Łyżka"
-                : "§fLewa [WASD]: §bObrót & Przedramię §7| §fPrawa [Strzałki]: §eWysięgnik & Łyżka";
-        extractor.text(font, handHint, x, y + 54, 0xDDDDDD, true);
+        int bar2BoxY = bar2Y + 9;
+        extractor.fill(x, bar2BoxY, x + barWidth, bar2BoxY + 4, 0xFF2A2A2A);
+        int loadWidth = Math.round(barWidth * Math.min(1.0F, load));
+        if (loadWidth > 0) {
+            int loadColor = load > 0.80F ? 0xFFFF2222 : (load > 0.45F ? 0xFFFFAA00 : 0xFF22DD55);
+            extractor.fill(x, bar2BoxY, x + loadWidth, bar2BoxY + 4, loadColor);
+        }
+        extractor.text(font, String.format("%.0f%%", load * 100.0F), x + barWidth + 4, bar2BoxY - 2,
+                load > 0.80F ? 0xFFFF4444 : 0xAAAAAA, true);
 
-        String keyHint = drive
-                ? "§8[W/S] Przód/Tył | [A/D] Skręt | [Z] Zmień łyżkę | [↑/↓] Boom | [←/→] Łyżka"
-                : "§8[W/S] Przedramię | [A/D] Obrót | [Z] Zmień łyżkę | [↑/↓] Boom | [←/→] Łyżka";
-        extractor.text(font, keyHint, x, y + 63, 0x888888, true);
+        // Compact control hints footer
+        String hint = drive ? "§8[W/S] Gąsienice | [Z] Łyżka" : "§8[W/S] Ramię | [A/D] Obrót | [Z] Łyżka";
+        extractor.text(font, hint, x, y + height - 9, 0x888888, true);
     }
 }

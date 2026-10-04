@@ -6,6 +6,7 @@ import com.piotrek.groundworksexcavator.client.input.ExcavatorKeyBindings;
 import com.piotrek.groundworksexcavator.client.model.ExcavatorModel;
 import com.piotrek.groundworksexcavator.client.render.ExcavatorHudOverlay;
 import com.piotrek.groundworksexcavator.client.render.ExcavatorRenderer;
+import com.piotrek.groundworksexcavator.client.sound.ExcavatorEngineSoundController;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
@@ -28,8 +29,9 @@ public class GroundworksExcavatorClient implements ClientModInitializer {
         // Register keybindings
         ExcavatorKeyBindings.register();
 
-        // Register input tick listener
+        // Register input and positional engine sound tick listeners
         ClientTickEvents.END_CLIENT_TICK.register(ExcavatorInputHandler::clientTick);
+        ClientTickEvents.END_CLIENT_TICK.register(ExcavatorEngineSoundController::clientTick);
 
         // Register in-cab HUD
         ExcavatorHudOverlay.register();

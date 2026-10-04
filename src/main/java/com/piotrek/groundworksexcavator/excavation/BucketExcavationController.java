@@ -29,6 +29,11 @@ import java.util.Set;
 public final class BucketExcavationController {
 
     public static final int MAX_UNITS_PER_TICK = 32;
+    private static final int MAX_SURFACE_PUSH_PER_CONTACT = 8;
+    private static final int MAX_SURFACE_PUSH_PER_TICK = 32;
+    private static final double MIN_SURFACE_PUSH_SPEED = 0.015D;
+    private static final double SURFACE_PENETRATION_TOLERANCE = 0.125D;
+    private static final double MAX_SURFACE_GAP = 0.18D;
 
     public record ExcavationTickResult(
             int unitsExcavated,
@@ -49,18 +54,18 @@ public final class BucketExcavationController {
             ServerLevel level,
             BucketMaterialContainer bucket,
             BucketPose previousPose,
-            BucketPose currentPose
+            BucketPose currentPose,
+            boolean preferIntake
     ) {
-        if (!bucket.hasRoom()) {
-            return ExcavationTickResult.NONE;
-        }
-
         SweptBucketVolume.SweptResult sweep = SweptBucketVolume.compute(previousPose, currentPose);
         if (!sweep.valid() || sweep.contacts().isEmpty()) {
             return ExcavationTickResult.NONE;
         }
 
+        Vec3 movement = currentPose.cuttingEdge().subtract(previousPose.cuttingEdge());
+        double horizontalSpeed = Math.hypot(movement.x, movement.z);
         int totalExcavated = 0;
+        int totalDisplaced = 0;
         GranularMaterial lastMaterial = GranularMaterial.EMPTY;
         Vec3 lastHit = sweep.hitLocation();
         Set<BlockPos> processedBlocks = new HashSet<>();
@@ -68,87 +73,118 @@ public final class BucketExcavationController {
         int maxIntake = isLarge ? 128 : MAX_UNITS_PER_TICK;
 
         for (SweptBucketVolume.ToothContact contact : sweep.contacts()) {
-            if (bucket.remainingCapacity() <= 0 || totalExcavated >= maxIntake) {
-                break;
+            ContactTarget target = resolveContact(level, contact.worldPoint(), preferIntake);
+            if (target == null || !processedBlocks.add(target.pos())) continue;
+
+            if (target.surfaceSkim() && horizontalSpeed >= MIN_SURFACE_PUSH_SPEED
+                    && totalDisplaced < MAX_SURFACE_PUSH_PER_TICK) {
+                int requested = Math.min(
+                        MAX_SURFACE_PUSH_PER_CONTACT,
+                        MAX_SURFACE_PUSH_PER_TICK - totalDisplaced);
+                GroundworksExcavationAdapter.SurfaceDisplacement displacement =
+                        GroundworksExcavationAdapter.displaceSurface(
+                                level,
+                                target.pos(),
+                                contact.worldPoint(),
+                                surfacePushTarget(target.pos(), movement),
+                                requested);
+                if (displacement.unitsMoved() > 0) {
+                    totalDisplaced += displacement.unitsMoved();
+                    lastMaterial = displacement.material();
+                    lastHit = contact.worldPoint();
+                    spawnDigParticles(level, contact.worldPoint(), displacement.material());
+                }
+                continue;
             }
 
-            BlockPos targetPos = resolveDiggableBlock(level, contact, isLarge);
-            if (targetPos == null || !processedBlocks.add(targetPos)) {
+            if (target.surfaceSkim() || !bucket.hasRoom() || totalExcavated >= maxIntake) {
                 continue;
             }
 
             int perContactMax = isLarge ? 64 : 32;
-            int needed = Math.min(bucket.remainingCapacity(), Math.min(perContactMax, maxIntake - totalExcavated));
-            if (needed <= 0) {
-                break;
-            }
+            int needed = Math.min(
+                    bucket.remainingCapacity(),
+                    Math.min(perContactMax, maxIntake - totalExcavated));
+            if (needed <= 0) continue;
 
-            // Call Groundworks spherical crater excavation at exact tooth contact coordinates
             ExcavationResult result = GroundworksExcavationAdapter.excavateAt(
-                    level, targetPos, contact.worldPoint(), needed
-            );
+                    level, target.pos(), contact.worldPoint(), needed);
+            if (!result.success()) continue;
 
-            if (result.success()) {
-                int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
-                if (accepted > 0) {
-                    totalExcavated += accepted;
-                    lastMaterial = result.material();
-                    lastHit = contact.worldPoint();
-
-                    // Visual digging particles directly at the tooth contact point
-                    spawnDigParticles(level, contact.worldPoint(), result.material());
-                }
+            int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
+            if (accepted < result.unitsRemoved()) {
+                GroundworksExcavationAdapter.deposit(
+                        level, target.pos(), result.material(), result.unitsRemoved() - accepted);
             }
+            if (accepted <= 0) continue;
 
-            // If large bucket is biting deep into ground, also take from block directly below
-            if (isLarge && bucket.remainingCapacity() > 0 && totalExcavated < maxIntake) {
-                BlockPos belowPos = targetPos.below();
-                if (processedBlocks.add(belowPos) && GroundworksExcavationAdapter.isDiggable(level, belowPos)) {
-                    int extraNeeded = Math.min(bucket.remainingCapacity(), Math.min(48, maxIntake - totalExcavated));
-                    if (extraNeeded > 0) {
-                        ExcavationResult extraResult = GroundworksExcavationAdapter.excavateAt(
-                                level, belowPos, contact.worldPoint().subtract(0, 0.5, 0), extraNeeded
-                        );
-                        if (extraResult.success()) {
-                            int extraAccepted = bucket.acceptMaterial(extraResult.material(), extraResult.unitsRemoved());
-                            if (extraAccepted > 0) {
-                                totalExcavated += extraAccepted;
-                            }
+            totalExcavated += accepted;
+            lastMaterial = result.material();
+            lastHit = contact.worldPoint();
+            spawnDigParticles(level, contact.worldPoint(), result.material());
+
+            // Preserve the large bucket's deeper bite while keeping rejected units conserved.
+            if (isLarge && bucket.hasRoom() && totalExcavated < maxIntake) {
+                BlockPos below = target.pos().below();
+                if (processedBlocks.add(below)
+                        && GroundworksExcavationAdapter.isDiggable(level, below)) {
+                    int extraNeeded = Math.min(
+                            bucket.remainingCapacity(), Math.min(48, maxIntake - totalExcavated));
+                    ExcavationResult extra = GroundworksExcavationAdapter.excavateAt(
+                            level, below, contact.worldPoint().subtract(0.0D, 0.5D, 0.0D), extraNeeded);
+                    if (extra.success()) {
+                        int extraAccepted = bucket.acceptMaterial(
+                                extra.material(), extra.unitsRemoved());
+                        if (extraAccepted < extra.unitsRemoved()) {
+                            GroundworksExcavationAdapter.deposit(
+                                    level, below, extra.material(), extra.unitsRemoved() - extraAccepted);
                         }
+                        totalExcavated += extraAccepted;
                     }
                 }
             }
         }
 
-        if (totalExcavated > 0) {
+        if (totalExcavated > 0 || totalDisplaced > 0) {
             return new ExcavationTickResult(totalExcavated, lastMaterial, lastHit, true);
         }
-
         return ExcavationTickResult.NONE;
     }
 
-    /**
-     * Resolves the target diggable block position. If tooth is in air but skimming near a diggable soil block below, targets the block below.
-     */
-    private static BlockPos resolveDiggableBlock(ServerLevel level, SweptBucketVolume.ToothContact contact, boolean isLarge) {
-        BlockPos pos = contact.pos();
-        if (GroundworksExcavationAdapter.isDiggable(level, pos)) {
-            return pos;
-        }
-
-        // Surface skimming check
-        Vec3 pt = contact.worldPoint();
-        double fractionalY = pt.y - Math.floor(pt.y);
-        double maxSkim = isLarge ? 0.65D : 0.35D;
-        if (fractionalY < maxSkim) {
-            BlockPos below = pos.below();
-            if (GroundworksExcavationAdapter.isDiggable(level, below)) {
-                return below;
+    private static ContactTarget resolveContact(ServerLevel level, Vec3 point, boolean preferIntake) {
+        BlockPos direct = BlockPos.containing(point);
+        BlockPos[] candidates = { direct, direct.below() };
+        for (BlockPos candidate : candidates) {
+            if (!GroundworksExcavationAdapter.isDiggable(level, candidate)) continue;
+            double surfaceY = GroundworksExcavationAdapter.getSurfaceWorldY(
+                    level, candidate, point.x, point.z);
+            double gap = point.y - surfaceY;
+            if (isSurfaceSkim(gap)) {
+                return new ContactTarget(candidate, !preferIntake);
             }
         }
 
+        if (GroundworksExcavationAdapter.containsMaterialAt(level, point)
+                && GroundworksExcavationAdapter.isDiggable(level, direct)) {
+            return new ContactTarget(direct, false);
+        }
         return null;
     }
+
+    static boolean isSurfaceSkim(double pointMinusSurfaceY) {
+        return pointMinusSurfaceY >= -SURFACE_PENETRATION_TOLERANCE
+                && pointMinusSurfaceY <= MAX_SURFACE_GAP;
+    }
+
+    static BlockPos surfacePushTarget(BlockPos source, Vec3 movement) {
+        double max = Math.max(Math.abs(movement.x), Math.abs(movement.z));
+        if (max < MIN_SURFACE_PUSH_SPEED) return source;
+        int dx = Math.abs(movement.x) >= max * 0.5D ? movement.x > 0.0D ? 1 : -1 : 0;
+        int dz = Math.abs(movement.z) >= max * 0.5D ? movement.z > 0.0D ? 1 : -1 : 0;
+        return source.offset(dx, 0, dz);
+    }
+
+    private record ContactTarget(BlockPos pos, boolean surfaceSkim) {}
 
     private static void spawnDigParticles(ServerLevel level, Vec3 pos, GranularMaterial material) {
         var block = material.sourceBlock() != null ? material.sourceBlock() : Blocks.DIRT;
