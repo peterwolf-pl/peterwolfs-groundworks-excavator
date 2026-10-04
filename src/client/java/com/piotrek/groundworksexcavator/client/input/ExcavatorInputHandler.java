@@ -43,8 +43,7 @@ public final class ExcavatorInputHandler {
             return;
         }
 
-        if (client.player.getVehicle() instanceof GroundworksExcavatorEntity excavator
-                && excavator.isDriver(client.player)) {
+        if (client.player.getVehicle() instanceof GroundworksExcavatorEntity excavator) {
 
             // 1. Check Mode Toggle (Key X)
             while (ExcavatorKeyBindings.KEY_TOGGLE_MODE != null && ExcavatorKeyBindings.KEY_TOGGLE_MODE.consumeClick()) {

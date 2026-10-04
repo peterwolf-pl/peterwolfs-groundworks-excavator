@@ -105,10 +105,10 @@ public class ArmKinematicsTest {
     void testDumpTiltAngle() {
         Vec3 base = new Vec3(0.0D, 10.0D, 0.0D);
 
-        // Curled / held bucket (przyciągnięta do mnie: bucketAngle = -60 deg)
-        // totalBucketPitch = 20 - 10 - (-60 + 50) = 10 - (-10) = +20 deg -> points UP, dumpTilt < 0
+        // Curled / held bucket (przyciągnięta do mnie: bucketAngle = -50 deg)
+        // totalBucketPitch = 20 - 10 - (-50 + 45) = 10 - (-5) = +15 deg -> points UP, dumpTilt < 0
         BucketPose levelPose = ArmKinematics.computeBucketPose(
-                base, 0.0F, 0.0F, 0.0F, 0.0F, 20.0F, -10.0F, -60.0F
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 20.0F, -10.0F, -50.0F
         );
         assertTrue(levelPose.dumpTiltDegrees() < ArmKinematics.DUMP_THRESHOLD_DEG,
                 "Curled bucket should not trigger dump. Tilt: " + levelPose.dumpTiltDegrees());
