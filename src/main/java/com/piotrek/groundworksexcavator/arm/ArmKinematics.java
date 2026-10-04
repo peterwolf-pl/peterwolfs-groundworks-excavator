@@ -129,13 +129,15 @@ public final class ArmKinematics {
         Vec3 bucketPivot = stickPivot.add(stickDir.scale(STICK_LENGTH));
 
         // 3. Bucket joint (relative to stick)
-        float totalBucketPitch = totalStickPitch + bucketAngle;
+        // bucketAngle < 0 is curled in towards cab (holding material)
+        // bucketAngle > 0 is dumped out away from cab (dumping material)
+        float totalBucketPitch = totalStickPitch - bucketAngle;
         double bucketRad = Math.toRadians(totalBucketPitch);
         Vec3 bucketDir = upperHeading.scale(Math.cos(bucketRad)).add(upperUp.scale(Math.sin(bucketRad)));
         Vec3 cuttingEdge = bucketPivot.add(bucketDir.scale(BUCKET_LENGTH));
 
         // Bucket lip (exit point for dumped material)
-        Vec3 lip = cuttingEdge.add(bucketDir.scale(0.12D)).add(upperUp.scale(0.08D));
+        Vec3 lip = cuttingEdge.add(bucketDir.scale(0.12D)).add(upperUp.scale(-0.08D));
 
         // Scoop opening normal (perpendicular to bucket direction)
         Vec3 scoopNormal = upperHeading.scale(-Math.sin(bucketRad)).add(upperUp.scale(Math.cos(bucketRad)));
