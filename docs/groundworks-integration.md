@@ -27,6 +27,10 @@ Material is strictly conserved during all operations:
 
 $$\Delta V_{\text{terrain}} = \Delta V_{\text{bucket}}$$
 
+For a surface displacement that does not enter the bucket:
+
+$$V_{\text{terrain before}} = V_{\text{terrain after}}$$
+
 - If Groundworks removes $N$ units:
   The bucket receives **exactly** $N$ units.
 - If the bucket has room for only $M < N$ units:
@@ -53,8 +57,20 @@ ExcavationResult excavate(ServerLevel level, BlockPos pos, int maxUnits);
 // Upward-overflow deposition into terrain
 DepositResult deposit(ServerLevel level, BlockPos pos, GranularMaterial material, int units);
 
-// Sample microvoxel surface height (0..7) within a granular column
-int getSurfaceHeight(ServerLevel level, BlockPos pos, int localX, int localZ);
+// Test exact 1/8-block occupancy at a world-space arm or tooth sample
+boolean containsMaterialAt(ServerLevel level, Vec3 point);
+
+// Query the exact world-space top of one microvoxel column
+double getSurfaceWorldY(ServerLevel level, BlockPos pos, double worldX, double worldZ);
+
+// Move surface units to a neighboring cell without adding them to the bucket
+SurfaceDisplacement displaceSurface(
+    ServerLevel level,
+    BlockPos source,
+    Vec3 hitLocation,
+    BlockPos destination,
+    int maxUnits
+);
 ```
 
 ---
@@ -65,3 +81,5 @@ int getSurfaceHeight(ServerLevel level, BlockPos pos, int localX, int localZ);
    An excavator bucket can contain only one material type at a time (e.g. `dirt`, `sand`, or `gravel`).
 2. **Mismatch Handling**:
    If a bucket contains dirt and the cutting edge strikes sand, the bucket refuses to accept the sand until emptied. No silent material transmutation occurs.
+3. **Surface Displacement Rollback**:
+   If the destination accepts fewer units than were removed, every rejected unit is deposited back into the source. A failed rollback throws `Surface displacement lost material: removed=..., deposited=..., restored=...` instead of silently deleting terrain.

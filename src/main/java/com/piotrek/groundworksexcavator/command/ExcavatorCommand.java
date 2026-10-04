@@ -22,6 +22,14 @@ public final class ExcavatorCommand {
                 Commands.literal("excavator")
                         .then(Commands.literal("debug")
                                 .executes(ctx -> showDebug(ctx.getSource())))
+                        .then(Commands.literal("autotrench")
+                                .executes(ctx -> startAutoTrench(ctx.getSource()))
+                                .then(Commands.literal("start")
+                                        .executes(ctx -> startAutoTrench(ctx.getSource())))
+                                .then(Commands.literal("stop")
+                                        .executes(ctx -> stopAutoTrench(ctx.getSource())))
+                                .then(Commands.literal("status")
+                                        .executes(ctx -> showAutoTrenchStatus(ctx.getSource()))))
         );
     }
 
@@ -56,6 +64,7 @@ public final class ExcavatorCommand {
                 Removed Last Tick: %d units
                 Deposited Last Tick: %d units
                 Active States: Digging=%b, Dumping=%b
+                Auto Trench: %b | Phase: %s | Completed sections: %d
                 =================================""",
                 player.getName().getString(),
                 excavator.getX(), excavator.getY(), excavator.getZ(),
@@ -69,9 +78,54 @@ public final class ExcavatorCommand {
                 lipStr,
                 excavator.getLastExcavatedUnits(),
                 excavator.getLastDepositedUnits(),
-                excavator.isDigging(), excavator.isDumping()
+                excavator.isDigging(), excavator.isDumping(),
+                excavator.isAutoTrenchActive(), excavator.getAutoTrenchPhase(),
+                excavator.getAutoTrenchCompletedSections()
         )), false);
 
         return 1;
+    }
+
+    private static int startAutoTrench(CommandSourceStack source) {
+        GroundworksExcavatorEntity excavator = occupiedExcavator(source);
+        if (excavator == null) return 0;
+        excavator.startAutoTrench();
+        source.sendSuccess(() -> Component.literal(
+                "Automatic 1x1 trench test started. Dismount to stop it immediately."), false);
+        return 1;
+    }
+
+    private static int stopAutoTrench(CommandSourceStack source) {
+        GroundworksExcavatorEntity excavator = occupiedExcavator(source);
+        if (excavator == null) return 0;
+        excavator.stopAutoTrench();
+        source.sendSuccess(() -> Component.literal("Automatic trench test stopped."), false);
+        return 1;
+    }
+
+    private static int showAutoTrenchStatus(CommandSourceStack source) {
+        GroundworksExcavatorEntity excavator = occupiedExcavator(source);
+        if (excavator == null) return 0;
+        source.sendSuccess(() -> Component.literal(String.format(
+                "Auto trench: active=%b, phase=%s, completed=%d",
+                excavator.isAutoTrenchActive(), excavator.getAutoTrenchPhase(),
+                excavator.getAutoTrenchCompletedSections())), false);
+        return 1;
+    }
+
+    private static GroundworksExcavatorEntity occupiedExcavator(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only a seated player can run this command."));
+            return null;
+        }
+        Entity vehicle = player.getVehicle();
+        if (!(vehicle instanceof GroundworksExcavatorEntity excavator)
+                || !excavator.isDriver(player)) {
+            source.sendFailure(Component.literal(
+                    "You must be seated in the excavator cab to run this command."));
+            return null;
+        }
+        return excavator;
     }
 }

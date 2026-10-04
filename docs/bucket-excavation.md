@@ -34,6 +34,25 @@ This swept point cloud maps directly to candidate `BlockPos` targets, ensuring a
 
 ---
 
+## Granular Contact Response
+
+The boom and stick use dense steel-contact samples. The bucket and cutting teeth are working tools, so they are excluded from the blocking arm volume and may enter material during a valid digging stroke.
+
+A boom, stick, cabin, or chassis candidate is accepted only when it introduces no new boom/stick steel contact with granular terrain. If arm steel is already inside material after loading an old world, only movements that reduce penetration are accepted.
+
+When teeth are embedded:
+
+- turntable rotation and differential steering cannot drag them sideways;
+- chassis movement that is mainly lateral to the cutting direction stops immediately;
+- boom, stick, and bucket hydraulics remain available for the digging stroke;
+- motion along the cutting direction and extraction motion remain available.
+
+A shallow surface skim does not fill the bucket. It displaces at most `32` integer units per tick, in batches of at most `8` units per contacted cell, into the next cell in the travel direction. Groundworks relaxation turns this displaced material into a small local mound.
+
+Deep tooth contact keeps the existing scoop behavior. The standard bucket can take up to `32` units per tick. The large bucket keeps its deeper secondary bite.
+
+---
+
 ## Dumping Flow Mechanics
 
 Material leaves the bucket via gravity flow when the bucket orientation is tilted downward past the dump threshold:

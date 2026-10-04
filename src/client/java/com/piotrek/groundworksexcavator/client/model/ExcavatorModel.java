@@ -66,39 +66,80 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Left track crawler (with guide rollers & sprockets)
+        // Left track crawler (open side frame with prominent wheels, rollers & tensioner)
         undercarriage.addOrReplaceChild(
                 "left_track",
                 CubeListBuilder.create()
-                        // Track belt: 132x70 UV [0..132, 0..70]
-                        .texOffs(0, 0).addBox(-5.0F, -7.0F, -28.0F, 10.0F, 14.0F, 56.0F)
-                        // Drive sprocket front & idler: 38x20 UV [346..384, 122..142]
-                        .texOffs(346, 122).addBox(-5.5F, -6.0F, 22.0F, 11.0F, 12.0F, 8.0F)
-                        .texOffs(346, 122).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F)
-                        // Bottom road rollers
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, -18.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, -6.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, 6.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, 18.0F, 9.0F, 4.0F, 6.0F)
-                        // Top carrier return rollers
-                        .texOffs(346, 122).addBox(-4.5F, -8.0F, -10.0F, 9.0F, 3.0F, 5.0F)
-                        .texOffs(346, 122).addBox(-4.5F, -8.0F, 10.0F, 9.0F, 3.0F, 5.0F),
+                        // ── Outer Rubber/Steel Crawler Track Belt ──
+                        // Top belt run
+                        .texOffs(0, 0).addBox(-4.5F, -7.0F, -26.0F, 9.0F, 2.0F, 52.0F)
+                        // Bottom ground contact belt run
+                        .texOffs(0, 0).addBox(-4.5F, 5.0F, -26.0F, 9.0F, 2.0F, 52.0F)
+                        // Front curved wrap around drive sprocket
+                        .texOffs(0, 0).addBox(-4.5F, -5.0F, 25.0F, 9.0F, 10.0F, 3.0F)
+                        // Rear curved wrap around tensioner idler
+                        .texOffs(0, 0).addBox(-4.5F, -5.0F, -28.0F, 9.0F, 10.0F, 3.0F)
+
+                        // ── Central Track Roller Frame Beam (Side Girder) ──
+                        .texOffs(300, 0).addBox(-1.0F, -2.0F, -23.0F, 2.0F, 5.0F, 46.0F)
+
+                        // ── Front Toothed Drive Sprocket (Large Wheel) ──
+                        .texOffs(346, 122).addBox(-5.0F, -4.5F, 19.5F, 10.0F, 9.0F, 8.5F)
+                        .texOffs(160, 152).addBox(-5.5F, -2.5F, 21.5F, 11.0F, 5.0F, 5.0F) // Raised sprocket hub cap
+
+                        // ── Rear Bulldozer Idler & Recoil Spring Tensioner ──
+                        // Large front idler wheel
+                        .texOffs(160, 152).addBox(-5.0F, -4.5F, -27.5F, 10.0F, 9.0F, 8.5F)
+                        // Central idler wheel hub
+                        .texOffs(160, 152).addBox(-5.5F, -2.5F, -25.5F, 11.0F, 5.0F, 5.0F)
+                        // Heavy hydraulic grease tensioner cylinder & recoil spring assembly
+                        .texOffs(160, 152).addBox(-3.5F, -1.5F, -19.0F, 7.0F, 3.0F, 8.0F)
+
+                        // ── Bottom Road Wheels (6 Bogie Suspension Rollers) ──
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -17.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -10.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -3.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, 4.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, 11.0F, 10.0F, 5.0F, 5.0F)
+
+                        // ── Top Track Carrier Return Rollers (Visible supporting upper belt) ──
+                        .texOffs(214, 152).addBox(-5.0F, -6.5F, -8.0F, 10.0F, 4.0F, 4.0F)
+                        .texOffs(214, 152).addBox(-5.0F, -6.5F, 8.0F, 10.0F, 4.0F, 4.0F),
                 PartPose.offset(-17.0F, 17.0F, 0.0F)
         );
 
-        // Right track crawler
+        // Right track crawler (open side frame with prominent wheels, rollers & tensioner)
         undercarriage.addOrReplaceChild(
                 "right_track",
                 CubeListBuilder.create()
-                        .texOffs(0, 0).addBox(-5.0F, -7.0F, -28.0F, 10.0F, 14.0F, 56.0F)
-                        .texOffs(346, 122).addBox(-5.5F, -6.0F, 22.0F, 11.0F, 12.0F, 8.0F)
-                        .texOffs(346, 122).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, -18.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, -6.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, 6.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, 4.0F, 18.0F, 9.0F, 4.0F, 6.0F)
-                        .texOffs(346, 122).addBox(-4.5F, -8.0F, -10.0F, 9.0F, 3.0F, 5.0F)
-                        .texOffs(346, 122).addBox(-4.5F, -8.0F, 10.0F, 9.0F, 3.0F, 5.0F),
+                        // ── Outer Rubber/Steel Crawler Track Belt ──
+                        .texOffs(0, 0).addBox(-4.5F, -7.0F, -26.0F, 9.0F, 2.0F, 52.0F)
+                        .texOffs(0, 0).addBox(-4.5F, 5.0F, -26.0F, 9.0F, 2.0F, 52.0F)
+                        .texOffs(0, 0).addBox(-4.5F, -5.0F, 25.0F, 9.0F, 10.0F, 3.0F)
+                        .texOffs(0, 0).addBox(-4.5F, -5.0F, -28.0F, 9.0F, 10.0F, 3.0F)
+
+                        // ── Central Track Roller Frame Beam (Side Girder) ──
+                        .texOffs(300, 0).addBox(-1.0F, -2.0F, -23.0F, 2.0F, 5.0F, 46.0F)
+
+                        // ── Front Toothed Drive Sprocket (Large Wheel) ──
+                        .texOffs(346, 122).addBox(-5.0F, -4.5F, 19.5F, 10.0F, 9.0F, 8.5F)
+                        .texOffs(160, 152).addBox(-5.5F, -2.5F, 21.5F, 11.0F, 5.0F, 5.0F)
+
+                        // ── Rear Bulldozer Idler & Recoil Spring Tensioner ──
+                        .texOffs(160, 152).addBox(-5.0F, -4.5F, -27.5F, 10.0F, 9.0F, 8.5F)
+                        .texOffs(160, 152).addBox(-5.5F, -2.5F, -25.5F, 11.0F, 5.0F, 5.0F)
+                        .texOffs(160, 152).addBox(-3.5F, -1.5F, -19.0F, 7.0F, 3.0F, 8.0F)
+
+                        // ── Bottom Road Wheels (6 Bogie Suspension Rollers) ──
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -17.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -10.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, -3.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, 4.0F, 10.0F, 5.0F, 5.0F)
+                        .texOffs(214, 152).addBox(-5.0F, 1.0F, 11.0F, 10.0F, 5.0F, 5.0F)
+
+                        // ── Top Track Carrier Return Rollers (Visible supporting upper belt) ──
+                        .texOffs(214, 152).addBox(-5.0F, -6.5F, -8.0F, 10.0F, 4.0F, 4.0F)
+                        .texOffs(214, 152).addBox(-5.0F, -6.5F, 8.0F, 10.0F, 4.0F, 4.0F),
                 PartPose.offset(17.0F, 17.0F, 0.0F)
         );
 

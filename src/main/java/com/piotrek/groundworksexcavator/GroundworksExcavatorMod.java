@@ -15,6 +15,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.CreativeModeTab;
@@ -42,6 +43,13 @@ public class GroundworksExcavatorMod implements ModInitializer {
                     .sized(2.8F, 2.2F)
                     .clientTrackingRange(10)
                     .build(EXCAVATOR_KEY)
+    );
+
+    // ── Sound Registration ──────────────────────────────────────────
+    public static final SoundEvent ENGINE_LOOP = Registry.register(
+            BuiltInRegistries.SOUND_EVENT,
+            id("engine_loop"),
+            SoundEvent.createFixedRangeEvent(id("engine_loop"), 48.0F)
     );
 
     // ── Item Registration ────────────────────────────────────────────
