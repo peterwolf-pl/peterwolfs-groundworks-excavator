@@ -42,14 +42,14 @@ public final class ArmKinematics {
     public static final float STICK_MIN = -95.0F;
     public static final float STICK_MAX = 30.0F;
 
-    public static final float BUCKET_MIN = -65.0F;
-    public static final float BUCKET_MAX = 90.0F;
+    public static final float BUCKET_MIN = -85.0F;
+    public static final float BUCKET_MAX = 95.0F;
 
     // ── Joint Speeds (degrees per tick) ───────────────────────────────
-    public static final float CAB_TURN_SPEED = 2.4F;
-    public static final float BOOM_SPEED = 1.8F;
-    public static final float STICK_SPEED = 2.2F;
-    public static final float BUCKET_SPEED = 2.8F;
+    public static final float CAB_TURN_SPEED = 3.0F;
+    public static final float BOOM_SPEED = 2.4F;
+    public static final float STICK_SPEED = 2.8F;
+    public static final float BUCKET_SPEED = 3.8F;
 
     // ── Dumping Threshold (degrees downward tilt) ────────────────────
     public static final float DUMP_THRESHOLD_DEG = 30.0F;

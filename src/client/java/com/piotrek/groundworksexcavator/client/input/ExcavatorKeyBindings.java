@@ -6,15 +6,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 
 /**
- * Keybindings for hydraulic excavator operation following standard ISO excavator two-hand ergonomics.
- *
- * <p>Layout:
- * <ul>
- *   <li><b>Prawa ręka (Arrow Keys)</b>: Prawy Joystick = Wysięgnik (Up/Down) & Łyżka (Left/Right)</li>
- *   <li><b>Lewa ręka (WASD)</b>: Lewy Joystick w trybie ramienia = Przedramię (W/S) & Obrót kabiny (A/D)</li>
- *   <li><b>Lewa ręka (WASD)</b>: Gąsienice w trybie jazdy = Przód/Tył (W/S) & Skręt (A/D)</li>
- *   <li><b>Klawisz X</b>: Przełącznik trybu (Jazda / Ramię)</li>
- * </ul>
+ * Keybindings for hydraulic excavator operation following ISO excavator ergonomics.
  */
 public final class ExcavatorKeyBindings {
 
@@ -26,6 +18,8 @@ public final class ExcavatorKeyBindings {
     public static KeyMapping KEY_BOOM_DOWN;
     public static KeyMapping KEY_BUCKET_CURL;
     public static KeyMapping KEY_BUCKET_DUMP;
+    public static KeyMapping KEY_CAB_LEFT;
+    public static KeyMapping KEY_CAB_RIGHT;
     public static KeyMapping KEY_STICK_OUT;
     public static KeyMapping KEY_STICK_IN;
 
@@ -40,7 +34,7 @@ public final class ExcavatorKeyBindings {
                 CATEGORY
         ));
 
-        // Right Hand Controls (Arrow keys = Boom & Bucket)
+        // Right Hand: Boom Up/Down (Arrow Up / Down)
         KEY_BOOM_UP = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.boom_up",
                 InputConstants.Type.KEYBOARD,
@@ -55,6 +49,7 @@ public final class ExcavatorKeyBindings {
                 CATEGORY
         ));
 
+        // Right Hand: Bucket Curl/Dump (Arrow Left / Right, or T / G)
         KEY_BUCKET_CURL = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.bucket_curl",
                 InputConstants.Type.KEYBOARD,
@@ -69,7 +64,22 @@ public final class ExcavatorKeyBindings {
                 CATEGORY
         ));
 
-        // Auxiliary Stick shortcuts (R / F)
+        // Cab Rotation (A / D, or Arrow Left / Right)
+        KEY_CAB_LEFT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.cab_left",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_A,
+                CATEGORY
+        ));
+
+        KEY_CAB_RIGHT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.cab_right",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_D,
+                CATEGORY
+        ));
+
+        // Dipper Stick Extension (W / S, or R / F)
         KEY_STICK_OUT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.stick_out",
                 InputConstants.Type.KEYBOARD,
