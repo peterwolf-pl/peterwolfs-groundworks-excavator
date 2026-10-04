@@ -52,6 +52,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
         state.storedUnits = entity.getStoredUnits();
         state.capacity = entity.getBucketCapacity();
         state.fillRatio = (float) entity.getStoredUnits() / (float) Math.max(1, entity.getBucketCapacity());
+        state.bucketType = entity.getBucketType();
 
         state.isDigging = entity.isDigging();
         state.isDumping = entity.isDumping();

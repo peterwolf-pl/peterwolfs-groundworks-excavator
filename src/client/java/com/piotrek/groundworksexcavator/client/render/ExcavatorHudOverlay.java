@@ -57,12 +57,14 @@ public class ExcavatorHudOverlay implements HudElement {
                 excavator.isDumping() ? "§e§lWYSYP" : "§7GOTOWA";
         extractor.text(font, "Status: " + status, x + 165, y + 11, 0xCCCCCC, true);
 
-        // Material & Capacity
+        // Material & Capacity + Bucket Type Indicator
         String matName = excavator.getBucketMaterialId() > 0 ? excavator.getBucketMaterial().name().toUpperCase() : "PUSTO";
         int units = excavator.getStoredUnits();
         int cap = excavator.getBucketCapacity();
         double m3 = GroundworksExcavationAdapter.unitsToCubicMeters(units);
-        extractor.text(font, String.format("Łyżka: §f%s §7(%d/%d = %.3f m³)", matName, units, cap, m3), x, y + 22, 0xCCCCCC, true);
+        boolean isLarge = excavator.getBucketType() == 1;
+        String typeLabel = isLarge ? "§e[DUŻA 512u]" : "§b[STD 256u]";
+        extractor.text(font, String.format("Łyżka %s: §f%s §7(%d/%d = %.3f m³)", typeLabel, matName, units, cap, m3), x, y + 22, 0xCCCCCC, true);
 
         // Fill progress bar
         int barWidth = 160;
@@ -88,8 +90,8 @@ public class ExcavatorHudOverlay implements HudElement {
         extractor.text(font, handHint, x, y + 54, 0xDDDDDD, true);
 
         String keyHint = drive
-                ? "§8[W/S] Przód/Tył | [A/D] Skręt | [↑/↓] Wysięgnik | [←/→] Łyżka"
-                : "§8[W/S] Przedramię | [A/D] Obrót | [↑/↓] Wysięgnik | [←/→] Łyżka";
+                ? "§8[W/S] Przód/Tył | [A/D] Skręt | [Z] Zmień łyżkę | [↑/↓] Boom | [←/→] Łyżka"
+                : "§8[W/S] Przedramię | [A/D] Obrót | [Z] Zmień łyżkę | [↑/↓] Boom | [←/→] Łyżka";
         extractor.text(font, keyHint, x, y + 63, 0x888888, true);
     }
 }

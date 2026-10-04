@@ -65,9 +65,11 @@ public final class BucketDumpingController {
         }
 
         // Calculate flow rate based on how steep the bucket is tilted
-        // At 30 deg -> 8 units/tick, at 75+ deg -> 32 units/tick
+        // Standard: 8..32 units/tick. Large (512u): 16..64 units/tick
+        int minFlow = (bucket.capacity() >= 512) ? MIN_FLOW_RATE * 2 : MIN_FLOW_RATE;
+        int maxFlow = (bucket.capacity() >= 512) ? MAX_FLOW_RATE * 2 : MAX_FLOW_RATE;
         float progress = Mth.clamp((tilt - ArmKinematics.DUMP_THRESHOLD_DEG) / 45.0F, 0.0F, 1.0F);
-        int flowRate = Math.round(Mth.lerp(progress, (float) MIN_FLOW_RATE, (float) MAX_FLOW_RATE));
+        int flowRate = Math.round(Mth.lerp(progress, (float) minFlow, (float) maxFlow));
         int toDump = Math.min(bucket.storedUnits(), flowRate);
 
         if (toDump <= 0) {

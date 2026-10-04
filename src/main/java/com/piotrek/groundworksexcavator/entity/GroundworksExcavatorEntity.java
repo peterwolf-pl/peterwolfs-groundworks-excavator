@@ -48,8 +48,16 @@ public class GroundworksExcavatorEntity extends Entity {
     public static final int MODE_DRIVE = 0;
     public static final int MODE_EXCAVATOR = 1;
 
+    // ── Bucket Variants ──────────────────────────────────────────────
+    public static final int BUCKET_STANDARD = 0; // 256 units (0.500 m³)
+    public static final int BUCKET_LARGE = 1;    // 512 units (1.000 m³ - 2x capacity)
+    public static final int CAPACITY_STANDARD = 256;
+    public static final int CAPACITY_LARGE = 512;
+
     // ── Synched Entity Data ───────────────────────────────────────────
     private static final EntityDataAccessor<Integer> CONTROL_MODE =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> BUCKET_TYPE =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> TRACK_LEFT_SPEED =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
@@ -112,6 +120,7 @@ public class GroundworksExcavatorEntity extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(CONTROL_MODE, MODE_DRIVE);
+        builder.define(BUCKET_TYPE, BUCKET_STANDARD);
         builder.define(TRACK_LEFT_SPEED, 0.0F);
         builder.define(TRACK_RIGHT_SPEED, 0.0F);
         builder.define(UPPER_YAW, 0.0F);
@@ -242,7 +251,8 @@ public class GroundworksExcavatorEntity extends Entity {
                 this.getUpperYaw(),
                 this.getBoomAngle(),
                 this.getStickAngle(),
-                this.getBucketAngle()
+                this.getBucketAngle(),
+                this.getBucketType()
         );
 
         // Initialize previous pose on spawn / chunk load
@@ -426,6 +436,22 @@ public class GroundworksExcavatorEntity extends Entity {
         return this.getControlMode() == MODE_EXCAVATOR;
     }
 
+    public int getBucketType() {
+        return this.entityData.get(BUCKET_TYPE);
+    }
+
+    public void setBucketType(int type) {
+        int clamped = (type == BUCKET_LARGE) ? BUCKET_LARGE : BUCKET_STANDARD;
+        this.entityData.set(BUCKET_TYPE, clamped);
+        int targetCap = (clamped == BUCKET_LARGE) ? CAPACITY_LARGE : CAPACITY_STANDARD;
+        this.bucket.setCapacity(targetCap);
+        this.entityData.set(CAPACITY, targetCap);
+    }
+
+    public void toggleBucketType() {
+        setBucketType(getBucketType() == BUCKET_STANDARD ? BUCKET_LARGE : BUCKET_STANDARD);
+    }
+
     public float getTrackLeftSpeed() {
         return this.entityData.get(TRACK_LEFT_SPEED);
     }
@@ -513,6 +539,7 @@ public class GroundworksExcavatorEntity extends Entity {
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         this.setControlMode(input.getIntOr("ControlMode", MODE_DRIVE));
+        this.setBucketType(input.getIntOr("BucketType", BUCKET_STANDARD));
         this.entityData.set(UPPER_YAW, input.getFloatOr("UpperYaw", 0.0F));
         this.entityData.set(BOOM_ANGLE, input.getFloatOr("BoomAngle", 15.0F));
         this.entityData.set(STICK_ANGLE, input.getFloatOr("StickAngle", -35.0F));
@@ -529,6 +556,7 @@ public class GroundworksExcavatorEntity extends Entity {
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {
         output.putInt("ControlMode", this.getControlMode());
+        output.putInt("BucketType", this.getBucketType());
         output.putFloat("UpperYaw", this.getUpperYaw());
         output.putFloat("BoomAngle", this.getBoomAngle());
         output.putFloat("StickAngle", this.getStickAngle());

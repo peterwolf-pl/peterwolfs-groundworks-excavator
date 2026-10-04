@@ -8,12 +8,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 /**
  * Compact client operator intent packet.
  *
- * <p>Transmits control mode (0=Drive, 1=Arm), normalized drive inputs (-1.0 .. +1.0)
- * for tracks, cab rotation, and hydraulic arm joints. All resulting motion and terrain
- * modifications remain strictly server-authoritative.
+ * <p>Transmits:
+ * <ul>
+ *   <li>control mode (0=Drive, 1=Arm)</li>
+ *   <li>bucket type (0=Standard 256u, 1=Large/Bulk 512u)</li>
+ *   <li>normalized drive inputs (-1.0 .. +1.0) for tracks, cab, boom, stick, bucket</li>
+ * </ul>
  */
 public record ExcavatorInputPayload(
         int mode,
+        int bucketType,
         float throttle,
         float steer,
         float upperYawInput,
@@ -29,6 +33,7 @@ public record ExcavatorInputPayload(
         public ExcavatorInputPayload decode(RegistryFriendlyByteBuf buffer) {
             return new ExcavatorInputPayload(
                     buffer.readVarInt(),
+                    buffer.readVarInt(),
                     buffer.readFloat(),
                     buffer.readFloat(),
                     buffer.readFloat(),
@@ -41,6 +46,7 @@ public record ExcavatorInputPayload(
         @Override
         public void encode(RegistryFriendlyByteBuf buffer, ExcavatorInputPayload payload) {
             buffer.writeVarInt(payload.mode);
+            buffer.writeVarInt(payload.bucketType);
             buffer.writeFloat(payload.throttle);
             buffer.writeFloat(payload.steer);
             buffer.writeFloat(payload.upperYawInput);

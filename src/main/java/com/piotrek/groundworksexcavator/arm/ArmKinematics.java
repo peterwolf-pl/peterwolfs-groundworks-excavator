@@ -128,9 +128,6 @@ public final class ArmKinematics {
         return mat;
     }
 
-    /**
-     * Computes the full authoritative bucket pose matching the visual model 1:1.
-     */
     public static BucketPose computeBucketPose(
             Vec3 basePos,
             float baseYaw,
@@ -141,6 +138,25 @@ public final class ArmKinematics {
             float stickAngle,
             float bucketAngle
     ) {
+        return computeBucketPose(basePos, baseYaw, basePitch, baseRoll, upperYaw, boomAngle, stickAngle, bucketAngle, 0);
+    }
+
+    /**
+     * Computes the full authoritative bucket pose matching the visual model 1:1.
+     *
+     * @param bucketType 0 = Standard (256u), 1 = Large Bulk (512u)
+     */
+    public static BucketPose computeBucketPose(
+            Vec3 basePos,
+            float baseYaw,
+            float basePitch,
+            float baseRoll,
+            float upperYaw,
+            float boomAngle,
+            float stickAngle,
+            float bucketAngle,
+            int bucketType
+    ) {
         Matrix4f bucketMat = computeBucketMatrix(
                 basePos, baseYaw, basePitch, baseRoll, upperYaw, boomAngle, stickAngle, bucketAngle
         );
@@ -150,18 +166,24 @@ public final class ArmKinematics {
         bucketMat.transform(pivotVec);
         Vec3 pivot = new Vec3(pivotVec.x, pivotVec.y, pivotVec.z);
 
-        // 2. Five cutting teeth coordinates (matching the exact boxes in ExcavatorModel)
-        // Box offsets: X = -4.75, -2.0, +0.75, +3.5, +5.75 / 16; Y = 9.1 / 16; Z = -17.5 / 16
-        float[] teethX = { -4.75f, -2.0f, 0.75f, 3.5f, 5.75f };
-        List<Vec3> teethPoints = new ArrayList<>(TEETH_COUNT);
-        for (int i = 0; i < TEETH_COUNT; i++) {
+        // 2. Cutting teeth coordinates (matching the exact boxes in ExcavatorModel)
+        // Standard: 5 teeth across 12px width (-4.75 to +5.75)
+        // Large: 7 teeth across 20px width (-9.0 to +9.0)
+        float[] teethX = (bucketType == 1)
+                ? new float[] { -9.0f, -6.0f, -3.0f, 0.0f, 3.0f, 6.0f, 9.0f }
+                : new float[] { -4.75f, -2.0f, 0.75f, 3.5f, 5.75f };
+
+        int count = teethX.length;
+        List<Vec3> teethPoints = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
             Vector4f tv = new Vector4f(teethX[i] / 16.0f, 9.1f / 16.0f, -17.5f / 16.0f, 1.0f);
             bucketMat.transform(tv);
             teethPoints.add(new Vec3(tv.x, tv.y, tv.z));
         }
 
-        // 3. Cutting edge center (center tooth: index 2)
-        Vec3 cuttingEdge = teethPoints.get(2);
+        // 3. Cutting edge center (middle tooth)
+        int centerIdx = count / 2;
+        Vec3 cuttingEdge = teethPoints.get(centerIdx);
 
         // 4. Bucket lip (exit point for dumped granular material)
         Vector4f lipVec = new Vector4f(0.0f, 8.0f / 16.0f, -14.0f / 16.0f, 1.0f);
