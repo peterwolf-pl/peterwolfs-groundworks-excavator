@@ -1,5 +1,6 @@
 package com.piotrek.groundworksexcavator.client.input;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.piotrek.groundworksexcavator.entity.GroundworksExcavatorEntity;
 import com.piotrek.groundworksexcavator.network.ExcavatorInputPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -10,11 +11,11 @@ import net.minecraft.sounds.SoundEvents;
 /**
  * Gathers operator keyboard inputs each client tick and transmits control packets to the server.
  *
- * <p>Implements two-handed ISO excavator controls:
+ * <p>Supports:
  * <ul>
- *   <li><b>Prawa ręka (Strzałki)</b>: Prawy Joystick = Wysięgnik (Up/Down) & Łyżka (Left/Right)</li>
- *   <li><b>Lewa ręka (WASD) - Tryb Ramienia</b>: Lewy Joystick = Przedramię (W/S) & Obrót wieżyczki (A/D)</li>
- *   <li><b>Lewa ręka (WASD) - Tryb Jazdy</b>: Sterowanie gąsienicami = Jazda (W/S) & Skręt (A/D)</li>
+ *   <li><b>Prawa ręka (Strzałki & T/G)</b>: Wysięgnik (Up/Down) & Łyżka (Left/Right lub T/G)</li>
+ *   <li><b>Lewa ręka (WASD) - Tryb Ramienia</b>: Przedramię (W/S) & Obrót wieżyczki (A/D)</li>
+ *   <li><b>Lewa ręka (WASD) - Tryb Jazdy</b>: Gąsienice = Przód/Tył (W/S) & Skręt (A/D)</li>
  *   <li><b>Klawisz X</b>: Przełącznik trybu (Jazda / Ramię)</li>
  * </ul>
  */
@@ -46,7 +47,7 @@ public final class ExcavatorInputHandler {
                 && excavator.isDriver(client.player)) {
 
             // 1. Check Mode Toggle (Key X)
-            while (ExcavatorKeyBindings.KEY_TOGGLE_MODE.consumeClick()) {
+            while (ExcavatorKeyBindings.KEY_TOGGLE_MODE != null && ExcavatorKeyBindings.KEY_TOGGLE_MODE.consumeClick()) {
                 isDriveMode = !isDriveMode;
                 client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.8F, isDriveMode ? 1.2F : 0.9F);
                 client.player.sendSystemMessage(
@@ -64,15 +65,26 @@ public final class ExcavatorInputHandler {
             boolean keyRight = client.options.keyRight.isDown()
                     || (client.player.input != null && client.player.input.keyPresses.right());
 
-            // 3. Read Right Hand inputs (Arrow keys: Up/Down for Boom, Left/Right for Bucket)
-            boolean arrowUp = ExcavatorKeyBindings.KEY_BOOM_UP.isDown();
-            boolean arrowDown = ExcavatorKeyBindings.KEY_BOOM_DOWN.isDown();
-            boolean arrowLeft = ExcavatorKeyBindings.KEY_BUCKET_CURL.isDown();
-            boolean arrowRight = ExcavatorKeyBindings.KEY_BUCKET_DUMP.isDown();
+            boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
 
-            // 4. Secondary stick shortcuts (R / F)
-            boolean stickOutKey = ExcavatorKeyBindings.KEY_STICK_OUT.isDown();
-            boolean stickInKey = ExcavatorKeyBindings.KEY_STICK_IN.isDown();
+            // 3. Boom Controls: Up / Down Arrow (plus KeyMapping)
+            boolean boomUp = (ExcavatorKeyBindings.KEY_BOOM_UP != null && ExcavatorKeyBindings.KEY_BOOM_UP.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_UP));
+            boolean boomDown = (ExcavatorKeyBindings.KEY_BOOM_DOWN != null && ExcavatorKeyBindings.KEY_BOOM_DOWN.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_DOWN));
+
+            // 4. Bucket Controls: Left/Right Arrow OR T/G OR KeyMapping (100% fail-safe)
+            boolean bucketCurl = (ExcavatorKeyBindings.KEY_BUCKET_CURL != null && ExcavatorKeyBindings.KEY_BUCKET_CURL.isDown())
+                    || (inGame && (InputConstants.isKeyDown(InputConstants.KEY_LEFT) || InputConstants.isKeyDown(InputConstants.KEY_T)));
+
+            boolean bucketDump = (ExcavatorKeyBindings.KEY_BUCKET_DUMP != null && ExcavatorKeyBindings.KEY_BUCKET_DUMP.isDown())
+                    || (inGame && (InputConstants.isKeyDown(InputConstants.KEY_RIGHT) || InputConstants.isKeyDown(InputConstants.KEY_G)));
+
+            // 5. Stick Shortcuts (R / F)
+            boolean stickOutKey = (ExcavatorKeyBindings.KEY_STICK_OUT != null && ExcavatorKeyBindings.KEY_STICK_OUT.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_R));
+            boolean stickInKey = (ExcavatorKeyBindings.KEY_STICK_IN != null && ExcavatorKeyBindings.KEY_STICK_IN.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_F));
 
             float throttle = 0.0F;
             float steer = 0.0F;
@@ -83,16 +95,15 @@ public final class ExcavatorInputHandler {
 
             int currentMode = isDriveMode ? GroundworksExcavatorEntity.MODE_DRIVE : GroundworksExcavatorEntity.MODE_EXCAVATOR;
 
-            // ── PRAWA RĘKA (Right Hand): Prawy Joystick (Zawsze aktywny pod strzałkami) ──
-            // Strzałka w górę / w dół: Główne ramię / wysięgnik (Boom)
-            if (arrowUp) boom += 1.0F;
-            if (arrowDown) boom -= 1.0F;
+            // ── BUCKET (Łyżka) — always active on Left/Right Arrow and T/G in both modes ──
+            if (bucketCurl) bucket += 1.0F;  // Curl inward / nabieranie
+            if (bucketDump) bucket -= 1.0F;  // Dump outward / wysyp
 
-            // Strzałka w lewo / w prawo: Łyżka (Bucket)
-            if (arrowLeft) bucket += 1.0F;  // Lewo = Zwiń łyżkę / nabieranie (Curl In)
-            if (arrowRight) bucket -= 1.0F; // Prawo = Otwórz łyżkę / wysyp (Dump Out)
+            // ── BOOM (Wysięgnik główny) — always active on Up/Down Arrow ──
+            if (boomUp) boom += 1.0F;
+            if (boomDown) boom -= 1.0F;
 
-            // ── LEWA RĘKA (Left Hand): WASD zależnie od trybu pod klawiszem X ──
+            // ── LEFT HAND (WASD) — context dependent based on Mode X ──
             if (isDriveMode) {
                 // TRYB JAZDY: WASD steruje gąsienicami
                 if (keyForward) throttle += 1.0F;
