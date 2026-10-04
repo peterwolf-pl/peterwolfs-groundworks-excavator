@@ -43,8 +43,10 @@ public final class ArmKinematics {
     public static final float STICK_MIN = -95.0F;
     public static final float STICK_MAX = 30.0F;
 
-    public static final float BUCKET_MIN = -85.0F;
-    public static final float BUCKET_MAX = 95.0F;
+    public static final float BUCKET_MIN = -90.0F;
+    public static final float BUCKET_MAX = 90.0F;
+
+    public static final float BUCKET_MOUNT_OFFSET_DEG = 50.0F;
 
     // ── Joint Speeds (degrees per tick) ───────────────────────────────
     public static final float CAB_TURN_SPEED = 3.0F;
@@ -130,9 +132,8 @@ public final class ArmKinematics {
         Vec3 bucketPivot = stickPivot.add(stickDir.scale(STICK_LENGTH));
 
         // 3. Bucket joint (relative to stick)
-        // bucketAngle < 0 is curled in towards cab (holding material)
-        // bucketAngle > 0 is dumped out away from cab (dumping material)
-        float totalBucketPitch = totalStickPitch - bucketAngle;
+        // Includes the 50° mounting offset so fully open position (BUCKET_MAX) inverts the scoop completely
+        float totalBucketPitch = totalStickPitch - (bucketAngle + BUCKET_MOUNT_OFFSET_DEG);
         double bucketRad = Math.toRadians(totalBucketPitch);
         Vec3 bucketDir = upperHeading.scale(Math.cos(bucketRad)).add(upperUp.scale(Math.sin(bucketRad)));
         Vec3 cuttingEdge = bucketPivot.add(bucketDir.scale(BUCKET_LENGTH));

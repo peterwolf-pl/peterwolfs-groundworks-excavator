@@ -174,30 +174,30 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 56.0F)
         );
 
-        // ── 5. Bucket (Backhoe Scoop hanging underneath, opening towards cab) ──
+        // ── 5. Bucket (Backhoe Scoop hanging underneath, neutral at 50%) ──
         PartDefinition bucket = stick.addOrReplaceChild(
                 "bucket",
                 CubeListBuilder.create()
                         // Bucket top pivot linkage
                         .texOffs(90, 86).addBox(-5.0F, -3.0F, -3.0F, 10.0F, 6.0F, 6.0F)
-                        // Bucket outer curved back shell (facing forward/away from cab)
-                        .texOffs(90, 94).addBox(-6.0F, -2.0F, 0.0F, 12.0F, 8.0F, 3.0F)
-                        // Bucket heel plate (bottom curve)
-                        .texOffs(90, 94).addBox(-6.0F, 6.0F, -4.0F, 12.0F, 3.0F, 7.0F)
-                        // Left cheek plate (facing inward toward cab)
-                        .texOffs(74, 98).addBox(-6.0F, 0.0F, -12.0F, 2.0F, 8.0F, 14.0F)
-                        // Right cheek plate (facing inward toward cab)
-                        .texOffs(74, 98).addBox(4.0F, 0.0F, -12.0F, 2.0F, 8.0F, 14.0F)
+                        // Bucket outer curved back wall (facing forward/away from cab)
+                        .texOffs(90, 94).addBox(-6.0F, -1.0F, 1.0F, 12.0F, 10.0F, 3.0F)
+                        // Bucket rounded heel plate (bottom curve)
+                        .texOffs(90, 94).addBox(-6.0F, 8.0F, -4.0F, 12.0F, 3.0F, 8.0F)
+                        // Left cheek / side cutter plate
+                        .texOffs(74, 98).addBox(-6.0F, 1.0F, -10.0F, 2.0F, 9.0F, 13.0F)
+                        // Right cheek / side cutter plate
+                        .texOffs(74, 98).addBox(4.0F, 1.0F, -10.0F, 2.0F, 9.0F, 13.0F)
                         // Bottom floor plate
-                        .texOffs(90, 108).addBox(-6.0F, 6.0F, -12.0F, 12.0F, 2.0F, 10.0F)
+                        .texOffs(90, 108).addBox(-6.0F, 8.0F, -12.0F, 12.0F, 2.0F, 10.0F)
                         // Cutting edge base plate
-                        .texOffs(90, 114).addBox(-6.0F, 6.0F, -13.5F, 12.0F, 2.0F, 2.0F)
-                        // 5 Hardened cutting teeth (pointing towards cab)
-                        .texOffs(90, 119).addBox(-5.5F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
-                        .texOffs(90, 119).addBox(-2.75F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
-                        .texOffs(90, 119).addBox(0.0F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
-                        .texOffs(90, 119).addBox(2.75F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F)
-                        .texOffs(90, 119).addBox(5.0F, 6.5F, -16.5F, 1.5F, 1.2F, 3.5F),
+                        .texOffs(90, 114).addBox(-6.0F, 8.0F, -14.0F, 12.0F, 2.0F, 2.0F)
+                        // 5 Hardened chisel cutting teeth
+                        .texOffs(90, 119).addBox(-5.5F, 8.5F, -17.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(-2.75F, 8.5F, -17.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(0.0F, 8.5F, -17.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(2.75F, 8.5F, -17.5F, 1.5F, 1.2F, 3.5F)
+                        .texOffs(90, 119).addBox(5.0F, 8.5F, -17.5F, 1.5F, 1.2F, 3.5F),
                 PartPose.offset(0.0F, 0.0F, 38.0F)
         );
 
@@ -205,7 +205,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         bucket.addOrReplaceChild(
                 "bucket_contents",
                 CubeListBuilder.create()
-                        .texOffs(90, 123).addBox(-4.0F, 1.0F, -10.0F, 8.0F, 5.0F, 10.0F),
+                        .texOffs(90, 123).addBox(-4.0F, 2.0F, -9.0F, 8.0F, 6.0F, 11.0F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
@@ -219,10 +219,11 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         // Turntable yaw rotation (relative to undercarriage)
         this.upperBody.yRot = (float) Math.toRadians(-state.upperYaw);
 
-        // Hierarchical arm joint angles
+        // Hierarchical arm joint angles:
+        // Bucket has 50° mounting offset so fully open position hangs down vertically in full dump
         this.boom.xRot = (float) Math.toRadians(state.boomAngle);
         this.stick.xRot = (float) Math.toRadians(state.stickAngle);
-        this.bucket.xRot = (float) Math.toRadians(state.bucketAngle);
+        this.bucket.xRot = (float) Math.toRadians(state.bucketAngle + 50.0F);
 
         // Rotating warning beacon reflector when machine is operating
         if (state.isOperating) {
