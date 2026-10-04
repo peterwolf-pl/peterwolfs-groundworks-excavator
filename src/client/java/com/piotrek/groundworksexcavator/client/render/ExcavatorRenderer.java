@@ -65,8 +65,8 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
     public void submit(ExcavatorRenderState state, PoseStack stack, SubmitNodeCollector collector, CameraRenderState camera) {
         stack.pushPose();
 
-        // Rotate undercarriage heading
-        stack.rotateDegrees(Axis.YP, 180.0F - state.baseYaw);
+        // Rotate undercarriage heading (facing where tracks drive)
+        stack.rotateDegrees(Axis.YP, -state.baseYaw);
 
         // Apply ground pitch and roll
         if (Math.abs(state.basePitch) > 0.01F) {

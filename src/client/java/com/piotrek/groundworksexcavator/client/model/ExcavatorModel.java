@@ -217,7 +217,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         super.setupAnim(state);
 
         // Turntable yaw rotation (relative to undercarriage)
-        this.upperBody.yRot = (float) Math.toRadians(-state.upperYaw);
+        this.upperBody.yRot = (float) Math.toRadians(state.upperYaw);
 
         // Hierarchical arm joint angles:
         // Bucket has 45° mounting offset: -60° closes right under stick with zero clipping, +65° dumps vertically
