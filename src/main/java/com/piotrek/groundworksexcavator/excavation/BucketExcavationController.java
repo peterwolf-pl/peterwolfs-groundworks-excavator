@@ -12,15 +12,18 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Authoritative controller for terrain excavation using swept bucket kinematics.
  *
- * <p>Strictly enforces:
+ * <p>Enforces:
  * <ul>
+ *   <li>Precise tooth-level crater excavation exactly at contact coordinates.</li>
+ *   <li>Surface skimming detection: scraping the surface layer scoops soil immediately.</li>
  *   <li>Only excavates when bucket has free capacity.</li>
- *   <li>Only excavates when bucket is moving in a cutting direction.</li>
- *   <li>Material conservation: units excavated from terrain == units added to bucket.</li>
- *   <li>Zero phantom block deletion.</li>
+ *   <li>Strict material volume conservation.</li>
  * </ul>
  */
 public final class BucketExcavationController {
@@ -53,20 +56,22 @@ public final class BucketExcavationController {
         }
 
         SweptBucketVolume.SweptResult sweep = SweptBucketVolume.compute(previousPose, currentPose);
-        if (!sweep.valid() || sweep.hitPositions().isEmpty()) {
+        if (!sweep.valid() || sweep.contacts().isEmpty()) {
             return ExcavationTickResult.NONE;
         }
 
         int totalExcavated = 0;
         GranularMaterial lastMaterial = GranularMaterial.EMPTY;
         Vec3 lastHit = sweep.hitLocation();
+        Set<BlockPos> processedBlocks = new HashSet<>();
 
-        for (BlockPos pos : sweep.hitPositions()) {
-            if (bucket.remainingCapacity() <= 0) {
+        for (SweptBucketVolume.ToothContact contact : sweep.contacts()) {
+            if (bucket.remainingCapacity() <= 0 || totalExcavated >= MAX_UNITS_PER_TICK) {
                 break;
             }
 
-            if (!GroundworksExcavationAdapter.isDiggable(level, pos)) {
+            BlockPos targetPos = resolveDiggableBlock(level, contact);
+            if (targetPos == null || !processedBlocks.add(targetPos)) {
                 continue;
             }
 
@@ -75,20 +80,20 @@ public final class BucketExcavationController {
                 break;
             }
 
+            // Call Groundworks spherical crater excavation at exact tooth contact coordinates
             ExcavationResult result = GroundworksExcavationAdapter.excavateAt(
-                    level, pos, sweep.hitLocation(), needed
+                    level, targetPos, contact.worldPoint(), needed
             );
 
             if (result.success()) {
-                // Strict conservation: only add what Groundworks actually removed
                 int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
                 if (accepted > 0) {
                     totalExcavated += accepted;
                     lastMaterial = result.material();
-                    lastHit = sweep.hitLocation();
+                    lastHit = contact.worldPoint();
 
-                    // Visual digging particles
-                    spawnDigParticles(level, lastHit, result.material());
+                    // Visual digging particles directly at the tooth contact point
+                    spawnDigParticles(level, contact.worldPoint(), result.material());
                 }
             }
         }
@@ -100,13 +105,36 @@ public final class BucketExcavationController {
         return ExcavationTickResult.NONE;
     }
 
+    /**
+     * Resolves the target diggable block position. If tooth is in air but skimming within 35cm
+     * of a diggable soil block below, targets the block below.
+     */
+    private static BlockPos resolveDiggableBlock(ServerLevel level, SweptBucketVolume.ToothContact contact) {
+        BlockPos pos = contact.pos();
+        if (GroundworksExcavationAdapter.isDiggable(level, pos)) {
+            return pos;
+        }
+
+        // Surface skimming check
+        Vec3 pt = contact.worldPoint();
+        double fractionalY = pt.y - Math.floor(pt.y);
+        if (fractionalY < 0.35D) {
+            BlockPos below = pos.below();
+            if (GroundworksExcavationAdapter.isDiggable(level, below)) {
+                return below;
+            }
+        }
+
+        return null;
+    }
+
     private static void spawnDigParticles(ServerLevel level, Vec3 pos, GranularMaterial material) {
         var block = material.sourceBlock() != null ? material.sourceBlock() : Blocks.DIRT;
         level.sendParticles(
                 new BlockParticleOption(ParticleTypes.BLOCK, block.defaultBlockState()),
                 pos.x, pos.y, pos.z,
                 4,
-                0.15D, 0.1D, 0.15D,
+                0.12D, 0.08D, 0.12D,
                 0.05D
         );
     }
