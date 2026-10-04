@@ -8,11 +8,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 /**
  * Compact client operator intent packet.
  *
- * <p>Transmits normalized control inputs (-1.0 .. +1.0) for tracks, cab rotation,
- * and hydraulic arm joints. All resulting motion and terrain modifications remain
- * strictly server-authoritative.
+ * <p>Transmits control mode (0=Drive, 1=Arm), normalized drive inputs (-1.0 .. +1.0)
+ * for tracks, cab rotation, and hydraulic arm joints. All resulting motion and terrain
+ * modifications remain strictly server-authoritative.
  */
 public record ExcavatorInputPayload(
+        int mode,
         float throttle,
         float steer,
         float upperYawInput,
@@ -27,6 +28,7 @@ public record ExcavatorInputPayload(
         @Override
         public ExcavatorInputPayload decode(RegistryFriendlyByteBuf buffer) {
             return new ExcavatorInputPayload(
+                    buffer.readVarInt(),
                     buffer.readFloat(),
                     buffer.readFloat(),
                     buffer.readFloat(),
@@ -38,6 +40,7 @@ public record ExcavatorInputPayload(
 
         @Override
         public void encode(RegistryFriendlyByteBuf buffer, ExcavatorInputPayload payload) {
+            buffer.writeVarInt(payload.mode);
             buffer.writeFloat(payload.throttle);
             buffer.writeFloat(payload.steer);
             buffer.writeFloat(payload.upperYawInput);

@@ -11,9 +11,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public class TrackMovementController {
 
-    public static final double MAX_SPEED = 0.08D; // Realistic construction crawler speed (~1.6 m/s)
-    public static final double ACCELERATION = 0.016D;
-    public static final double BRAKING = 0.035D;
+    public static final double MAX_SPEED = 0.12D; // Realistic crawler speed (~2.4 m/s)
+    public static final double ACCELERATION = 0.035D;
+    public static final double BRAKING = 0.060D;
     public static final double TRACK_GAUGE = 2.1D; // Distance between tracks (meters)
     public static final double TRACK_LENGTH = 3.2D; // Contact length (meters)
 
@@ -45,12 +45,12 @@ public class TrackMovementController {
 
         if (Math.abs(throttleInput) < 0.01F && Math.abs(steerInput) > 0.01F) {
             // In-place pivot turn
-            targetLeft = -steerInput * (MAX_SPEED * 0.75D);
-            targetRight = steerInput * (MAX_SPEED * 0.75D);
+            targetLeft = -steerInput * (MAX_SPEED * 0.9D);
+            targetRight = steerInput * (MAX_SPEED * 0.9D);
         } else if (Math.abs(throttleInput) > 0.01F) {
             // Driving forward / reverse with steering curve
-            targetLeft = (throttleInput - steerInput * 0.6D) * MAX_SPEED;
-            targetRight = (throttleInput + steerInput * 0.6D) * MAX_SPEED;
+            targetLeft = (throttleInput - steerInput * 0.65D) * MAX_SPEED;
+            targetRight = (throttleInput + steerInput * 0.65D) * MAX_SPEED;
         } else {
             targetLeft = 0.0D;
             targetRight = 0.0D;
@@ -65,7 +65,7 @@ public class TrackMovementController {
 
         // Compute forward speed and yaw angular velocity
         double avgForwardSpeed = (leftTrackSpeed + rightTrackSpeed) * 0.5D;
-        float yawDelta = (float) Math.toDegrees((rightTrackSpeed - leftTrackSpeed) / TRACK_GAUGE);
+        float yawDelta = (float) Math.toDegrees((rightTrackSpeed - leftTrackSpeed) / TRACK_GAUGE) * 1.5F;
 
         if (!onGround) {
             avgForwardSpeed *= 0.5D;
