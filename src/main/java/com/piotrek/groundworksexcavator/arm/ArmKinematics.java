@@ -30,9 +30,9 @@ public final class ArmKinematics {
     public static final float STICK_MAX = 30.0F;
 
     // -60° curls tightly under the stick with 1.5px clearance without clipping
-    // +65° inverts the bucket completely vertically into dumping position
+    // +100° opens the bucket wide open outward (full 145° articulation range)
     public static final float BUCKET_MIN = -60.0F;
-    public static final float BUCKET_MAX = 65.0F;
+    public static final float BUCKET_MAX = 100.0F;
 
     public static final float BUCKET_MOUNT_OFFSET_DEG = 45.0F;
 
@@ -40,7 +40,7 @@ public final class ArmKinematics {
     public static final float CAB_TURN_SPEED = 3.0F;
     public static final float BOOM_SPEED = 2.4F;
     public static final float STICK_SPEED = 2.8F;
-    public static final float BUCKET_SPEED = 3.8F;
+    public static final float BUCKET_SPEED = 4.0F;
 
     // ── Dumping Threshold (degrees downward tilt) ────────────────────
     public static final float DUMP_THRESHOLD_DEG = 30.0F;
