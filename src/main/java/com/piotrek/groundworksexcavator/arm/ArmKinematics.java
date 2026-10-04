@@ -43,10 +43,12 @@ public final class ArmKinematics {
     public static final float STICK_MIN = -95.0F;
     public static final float STICK_MAX = 30.0F;
 
-    public static final float BUCKET_MIN = -90.0F;
-    public static final float BUCKET_MAX = 90.0F;
+    // BUCKET_MIN calibrated to -60° so fully closed position curls tight under stick with 1.5px clearance (no clipping)
+    // BUCKET_MAX calibrated to +65° so fully open position inverts completely vertically into dump
+    public static final float BUCKET_MIN = -60.0F;
+    public static final float BUCKET_MAX = 65.0F;
 
-    public static final float BUCKET_MOUNT_OFFSET_DEG = 50.0F;
+    public static final float BUCKET_MOUNT_OFFSET_DEG = 45.0F;
 
     // ── Joint Speeds (degrees per tick) ───────────────────────────────
     public static final float CAB_TURN_SPEED = 3.0F;

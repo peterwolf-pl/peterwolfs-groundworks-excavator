@@ -227,6 +227,12 @@ public class GroundworksExcavatorEntity extends Entity {
         this.setDeltaMovement(movement);
         this.move(MoverType.SELF, movement);
 
+        // Force position synchronization to passengers and tracking clients while driving
+        if (Math.abs(trackState.leftSpeed()) > 0.001F || Math.abs(trackState.rightSpeed()) > 0.001F || Math.abs(trackState.yawDeltaDegrees()) > 0.01F) {
+            this.syncPosition = true;
+            this.needsSync = true;
+        }
+
         // 4. Compute forward kinematics for current tick
         this.currentBucketPose = ArmKinematics.computeBucketPose(
                 this.position(),
@@ -356,6 +362,16 @@ public class GroundworksExcavatorEntity extends Entity {
             this.discard();
             return true;
         }
+        return false;
+    }
+
+    @Override
+    public boolean isClientAuthoritative() {
+        return false;
+    }
+
+    @Override
+    protected boolean isLocalClientAuthoritative() {
         return false;
     }
 

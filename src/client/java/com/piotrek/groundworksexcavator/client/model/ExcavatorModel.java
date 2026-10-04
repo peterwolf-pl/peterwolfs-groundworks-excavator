@@ -220,10 +220,10 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.upperBody.yRot = (float) Math.toRadians(-state.upperYaw);
 
         // Hierarchical arm joint angles:
-        // Bucket has 50° mounting offset so fully open position hangs down vertically in full dump
+        // Bucket has 45° mounting offset: -60° closes right under stick with zero clipping, +65° dumps vertically
         this.boom.xRot = (float) Math.toRadians(state.boomAngle);
         this.stick.xRot = (float) Math.toRadians(state.stickAngle);
-        this.bucket.xRot = (float) Math.toRadians(state.bucketAngle + 50.0F);
+        this.bucket.xRot = (float) Math.toRadians(state.bucketAngle + 45.0F);
 
         // Rotating warning beacon reflector when machine is operating
         if (state.isOperating) {
