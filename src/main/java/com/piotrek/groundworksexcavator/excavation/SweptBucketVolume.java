@@ -5,35 +5,42 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
- * Computes swept cutting volume and candidate terrain positions between two simulation ticks.
- *
- * <p>Prevents fake instant digging: terrain is only excavated along the path traced
- * by the cutting edge when moving in a cutting direction.
+ * Computes swept cutting volume and tooth-level contact points between two simulation ticks.
  */
 public final class SweptBucketVolume {
 
-    public static final double MIN_DIG_SPEED = 0.008D; // minimum movement (meters/tick) to trigger cutting
+    public static final double MIN_DIG_SPEED = 0.006D; // minimum movement to trigger cutting
     public static final double MAX_VALID_SPEED = 2.5D; // ignore teleportation / respawn discontinuities
     public static final int SWEEP_SUBDIVISIONS = 4;
 
+    public record ToothContact(BlockPos pos, Vec3 worldPoint) {}
+
     public record SweptResult(
             boolean valid,
-            List<BlockPos> hitPositions,
+            List<ToothContact> contacts,
             Vec3 hitLocation,
             double movementDistance
     ) {
         public static final SweptResult EMPTY = new SweptResult(false, List.of(), Vec3.ZERO, 0.0D);
+
+        public List<BlockPos> hitPositions() {
+            List<BlockPos> list = new ArrayList<>(contacts.size());
+            for (ToothContact c : contacts) {
+                list.add(c.pos());
+            }
+            return list;
+        }
     }
 
     private SweptBucketVolume() {}
 
     /**
-     * Compute swept candidate positions between previous and current bucket poses.
+     * Compute swept candidate tooth contact positions between previous and current bucket poses.
      */
     public static SweptResult compute(BucketPose previous, BucketPose current) {
         if (previous == null || current == null) {
@@ -50,17 +57,16 @@ public final class SweptBucketVolume {
             return SweptResult.EMPTY;
         }
 
-        // 2. Motion direction check: cutting edge must lead into the motion
+        // 2. Direction check
         Vec3 motionDir = motion.normalize();
-        // The bucket cuts when moving in the forward cutting direction or curling
         double cuttingAlignment = motionDir.dot(current.forwardCutting());
-        if (cuttingAlignment < -0.35D) {
-            // Moving backwards with rear of bucket: not a cutting action
+        if (cuttingAlignment < -0.55D) {
+            // Moving directly away from cutting orientation
             return SweptResult.EMPTY;
         }
 
-        // 3. Sweep interpolation across cutting teeth
-        Set<BlockPos> uniquePositions = new LinkedHashSet<>();
+        // 3. Sweep interpolation across all cutting teeth
+        Map<BlockPos, Vec3> uniqueContacts = new LinkedHashMap<>();
         List<Vec3> prevTeeth = previous.teethPoints();
         List<Vec3> currTeeth = current.teethPoints();
         int teethCount = Math.min(prevTeeth.size(), currTeeth.size());
@@ -71,13 +77,19 @@ public final class SweptBucketVolume {
                 Vec3 p0 = prevTeeth.get(t);
                 Vec3 p1 = currTeeth.get(t);
                 Vec3 pt = p0.lerp(p1, alpha);
-                uniquePositions.add(BlockPos.containing(pt.x, pt.y, pt.z));
+                BlockPos pos = BlockPos.containing(pt.x, pt.y, pt.z);
+                uniqueContacts.putIfAbsent(pos, pt);
             }
         }
 
+        List<ToothContact> contactList = new ArrayList<>(uniqueContacts.size());
+        for (Map.Entry<BlockPos, Vec3> entry : uniqueContacts.entrySet()) {
+            contactList.add(new ToothContact(entry.getKey(), entry.getValue()));
+        }
+
         return new SweptResult(
-                !uniquePositions.isEmpty(),
-                new ArrayList<>(uniquePositions),
+                !contactList.isEmpty(),
+                contactList,
                 currCenter,
                 dist
         );

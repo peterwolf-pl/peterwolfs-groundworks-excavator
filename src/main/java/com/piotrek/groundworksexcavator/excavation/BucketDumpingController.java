@@ -2,6 +2,7 @@ package com.piotrek.groundworksexcavator.excavation;
 
 import com.piotrek.groundworks.api.deposit.DepositResult;
 import com.piotrek.groundworks.api.material.GranularMaterial;
+import com.piotrek.groundworks.terrain.cell.GranularCell;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
@@ -12,7 +13,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Authoritative controller for pouring granular material out of the bucket into terrain.
@@ -21,9 +24,9 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li>Only pours when bucket tilt passes the dump threshold.</li>
  *   <li>Gradual flow rate based on dump angle (8..32 units/tick).</li>
+ *   <li>Deposits into the terrain surface directly underneath the bucket lip via gravity search.</li>
  *   <li>Material conservation: units deposited to terrain == units subtracted from bucket.</li>
  *   <li>Rejected units stay in the bucket (zero material destruction).</li>
- *   <li>Material exits at the bucket lip.</li>
  * </ul>
  */
 public final class BucketDumpingController {
@@ -72,17 +75,22 @@ public final class BucketDumpingController {
         }
 
         Vec3 lip = currentPose.lip();
-        BlockPos depositPos = BlockPos.containing(lip.x, lip.y, lip.z);
         GranularMaterial material = bucket.storedMaterial();
 
-        DepositResult result = GroundworksExcavationAdapter.deposit(level, depositPos, material, toDump);
+        // Find the exact ground or pile surface directly below the bucket lip via gravity raycast
+        BlockPos targetPos = findDepositSurface(level, lip, material);
+        if (targetPos == null) {
+            return DumpTickResult.NONE;
+        }
+
+        DepositResult result = GroundworksExcavationAdapter.deposit(level, targetPos, material, toDump);
 
         if (result.success()) {
             // Strictly extract only the units that Groundworks actually stored in terrain
             int extracted = bucket.extractMaterial(result.unitsDeposited());
 
-            // Visual falling material stream
-            spawnDumpParticles(level, lip, material, flowRate);
+            // Visual falling material stream from bucket lip down to ground target
+            spawnFallingStreamParticles(level, lip, targetPos, material, flowRate);
 
             return new DumpTickResult(extracted, material, lip, true);
         }
@@ -90,16 +98,60 @@ public final class BucketDumpingController {
         return DumpTickResult.NONE;
     }
 
-    private static void spawnDumpParticles(
-            ServerLevel level, Vec3 lip, GranularMaterial material, int flowRate) {
+    @Nullable
+    private static BlockPos findDepositSurface(ServerLevel level, Vec3 lip, GranularMaterial material) {
+        BlockPos start = BlockPos.containing(lip.x, lip.y, lip.z);
+
+        // 1. If lip is directly submerged in or touching an existing cell of the same material
+        GranularCell cellAtLip = GroundworksExcavationAdapter.queryCell(level, start);
+        if (cellAtLip != null && (cellAtLip.isEmpty() || cellAtLip.materialId() == material.id())) {
+            return start;
+        }
+
+        // 2. Gravity raycast straight down from the lip to find the receiving ground/pile surface
+        int lipY = start.getY();
+        int minY = Math.max(level.getMinY(), lipY - 14);
+
+        for (int y = lipY; y >= minY; y--) {
+            BlockPos checkPos = new BlockPos(start.getX(), y, start.getZ());
+            GranularCell cell = GroundworksExcavationAdapter.queryCell(level, checkPos);
+            if (cell != null) {
+                if (cell.isEmpty() || cell.materialId() == material.id()) {
+                    if (cell.unitCount() < 512) {
+                        return checkPos; // Existing cell with room
+                    } else {
+                        return checkPos.above(); // Cell is full, pile upward
+                    }
+                }
+            }
+
+            BlockState state = level.getBlockState(checkPos);
+            if (!state.isAir()) {
+                // Found ground surface (solid block or convertible soil)
+                return checkPos.above();
+            }
+        }
+
+        return null;
+    }
+
+    private static void spawnFallingStreamParticles(
+            ServerLevel level, Vec3 lip, BlockPos targetPos, GranularMaterial material, int flowRate
+    ) {
         var block = material.sourceBlock() != null ? material.sourceBlock() : Blocks.DIRT;
-        int count = Math.max(3, flowRate / 6);
-        level.sendParticles(
-                new BlockParticleOption(ParticleTypes.BLOCK, block.defaultBlockState()),
-                lip.x, lip.y - 0.1D, lip.z,
-                count,
-                0.08D, 0.05D, 0.08D,
-                0.08D
-        );
+        BlockParticleOption particle = new BlockParticleOption(ParticleTypes.BLOCK, block.defaultBlockState());
+
+        int count = Math.max(4, flowRate / 4);
+        double targetY = targetPos.getY() + 0.1D;
+        double fallDistance = Math.max(0.1D, lip.y - targetY);
+
+        for (int i = 0; i < count; i++) {
+            double fraction = level.getRandom().nextDouble();
+            double py = lip.y - fraction * fallDistance;
+            double px = lip.x + (level.getRandom().nextDouble() - 0.5D) * 0.20D;
+            double pz = lip.z + (level.getRandom().nextDouble() - 0.5D) * 0.20D;
+
+            level.sendParticles(particle, px, py, pz, 1, 0.02D, -0.20D, 0.02D, 0.05D);
+        }
     }
 }
