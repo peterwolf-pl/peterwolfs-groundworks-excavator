@@ -39,6 +39,25 @@ Execute the test suite:
 
 ---
 
+## Visual Client GameTests (`runClientGameTest`)
+
+The mod features automated visual regression tests executing directly in Minecraft's rendering pipeline via Fabric Client GameTests:
+
+```bash
+./gradlew runClientGameTest
+```
+
+This task launches an automated graphical singleplayer test instance, constructs a clean testing arena, spawns the excavator entity, moves the camera to 6 deterministic perspectives, articulates the arm, and saves clean regression screenshots into `visual-tests/current/`:
+
+1. `excavator_01_profile_isometric.png`: Front-left isometric view of the full vehicle.
+2. `excavator_02_cab_and_beacon.png`: Close-up of operator cab and the flashing yellow warning beacon.
+3. `excavator_03_counterweight_hazard.png`: Rear counterweight with safety hazard stripes and exhaust stack.
+4. `excavator_04_tracks_and_rollers.png`: Crawler tracks with drive sprockets and guide rollers.
+5. `excavator_05_digging_posture.png`: Working excavation posture with boom lowered and teeth cutting.
+6. `excavator_06_dump_posture.png`: Rotated turntable cab and inverted bucket dumping pose.
+
+---
+
 ## Manual Acceptance Scenario
 
 To perform manual acceptance testing in game:

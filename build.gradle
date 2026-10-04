@@ -26,6 +26,15 @@ loom {
 	}
 }
 
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		enableClientGameTests = true
+		modId = "pw_groundworks_excavator_test"
+		eula = true
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
@@ -39,6 +48,11 @@ dependencies {
 
 test {
 	useJUnitPlatform()
+}
+
+tasks.named("runClientGameTest") {
+	def outputPath = providers.gradleProperty("excavatorVisualOutputDir").orElse("visual-tests/current")
+	jvmArgs "-Dexcavator.visualOutputDir=${file(outputPath.get()).absolutePath}"
 }
 
 processResources {

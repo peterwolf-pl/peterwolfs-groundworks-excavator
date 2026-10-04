@@ -11,4 +11,5 @@ out/
 .settings
 run/
 logs/
+visual-tests/
 .DS_Store
