@@ -10,10 +10,12 @@ import net.minecraft.sounds.SoundEvents;
 /**
  * Gathers operator keyboard inputs each client tick and transmits control packets to the server.
  *
- * <p>Supports two distinct operator contexts toggled with key 'X':
+ * <p>Implements two-handed ISO excavator controls:
  * <ul>
- *   <li><b>DRIVE MODE</b>: WASD drives and differential-steers the tracks.</li>
- *   <li><b>ARM MODE</b>: WASD (and arrows) articulate the rotating cab and heavy boom.</li>
+ *   <li><b>Prawa ręka (Strzałki)</b>: Prawy Joystick = Wysięgnik (Up/Down) & Łyżka (Left/Right)</li>
+ *   <li><b>Lewa ręka (WASD) - Tryb Ramienia</b>: Lewy Joystick = Przedramię (W/S) & Obrót wieżyczki (A/D)</li>
+ *   <li><b>Lewa ręka (WASD) - Tryb Jazdy</b>: Sterowanie gąsienicami = Jazda (W/S) & Skręt (A/D)</li>
+ *   <li><b>Klawisz X</b>: Przełącznik trybu (Jazda / Ramię)</li>
  * </ul>
  */
 public final class ExcavatorInputHandler {
@@ -52,7 +54,7 @@ public final class ExcavatorInputHandler {
                 );
             }
 
-            // 2. Read base key inputs (supporting both KeyMapping and PlayerInput)
+            // 2. Read Left Hand inputs (WASD from KeyMapping or PlayerInput)
             boolean keyForward = client.options.keyUp.isDown()
                     || (client.player.input != null && client.player.input.keyPresses.forward());
             boolean keyBackward = client.options.keyDown.isDown()
@@ -62,15 +64,15 @@ public final class ExcavatorInputHandler {
             boolean keyRight = client.options.keyRight.isDown()
                     || (client.player.input != null && client.player.input.keyPresses.right());
 
-            boolean arrowLeft = ExcavatorKeyBindings.KEY_CAB_LEFT.isDown();
-            boolean arrowRight = ExcavatorKeyBindings.KEY_CAB_RIGHT.isDown();
+            // 3. Read Right Hand inputs (Arrow keys: Up/Down for Boom, Left/Right for Bucket)
             boolean arrowUp = ExcavatorKeyBindings.KEY_BOOM_UP.isDown();
             boolean arrowDown = ExcavatorKeyBindings.KEY_BOOM_DOWN.isDown();
+            boolean arrowLeft = ExcavatorKeyBindings.KEY_BUCKET_CURL.isDown();
+            boolean arrowRight = ExcavatorKeyBindings.KEY_BUCKET_DUMP.isDown();
 
-            boolean stickOut = ExcavatorKeyBindings.KEY_STICK_OUT.isDown();
-            boolean stickIn = ExcavatorKeyBindings.KEY_STICK_IN.isDown();
-            boolean bucketCurl = ExcavatorKeyBindings.KEY_BUCKET_CURL.isDown();
-            boolean bucketDump = ExcavatorKeyBindings.KEY_BUCKET_DUMP.isDown();
+            // 4. Secondary stick shortcuts (R / F)
+            boolean stickOutKey = ExcavatorKeyBindings.KEY_STICK_OUT.isDown();
+            boolean stickInKey = ExcavatorKeyBindings.KEY_STICK_IN.isDown();
 
             float throttle = 0.0F;
             float steer = 0.0F;
@@ -81,34 +83,36 @@ public final class ExcavatorInputHandler {
 
             int currentMode = isDriveMode ? GroundworksExcavatorEntity.MODE_DRIVE : GroundworksExcavatorEntity.MODE_EXCAVATOR;
 
+            // ── PRAWA RĘKA (Right Hand): Prawy Joystick (Zawsze aktywny pod strzałkami) ──
+            // Strzałka w górę / w dół: Główne ramię / wysięgnik (Boom)
+            if (arrowUp) boom += 1.0F;
+            if (arrowDown) boom -= 1.0F;
+
+            // Strzałka w lewo / w prawo: Łyżka (Bucket)
+            if (arrowLeft) bucket += 1.0F;  // Lewo = Zwiń łyżkę / nabieranie (Curl In)
+            if (arrowRight) bucket -= 1.0F; // Prawo = Otwórz łyżkę / wysyp (Dump Out)
+
+            // ── LEWA RĘKA (Left Hand): WASD zależnie od trybu pod klawiszem X ──
             if (isDriveMode) {
-                // ── DRIVE MODE: WASD controls the crawler tracks ──
+                // TRYB JAZDY: WASD steruje gąsienicami
                 if (keyForward) throttle += 1.0F;
                 if (keyBackward) throttle -= 1.0F;
                 if (keyLeft) steer -= 1.0F;
                 if (keyRight) steer += 1.0F;
-
-                // Arrows can still adjust arm during transport
-                if (arrowLeft) cabYaw -= 1.0F;
-                if (arrowRight) cabYaw += 1.0F;
-                if (arrowUp) boom += 1.0F;
-                if (arrowDown) boom -= 1.0F;
             } else {
-                // ── ARM MODE: Tracks stationary, WASD & Arrows articulate arm ──
-                // A / D or Left/Right Arrow rotates turntable cab
-                if (keyLeft || arrowLeft) cabYaw -= 1.0F;
-                if (keyRight || arrowRight) cabYaw += 1.0F;
+                // TRYB RAMIENIA: WASD steruje lewym joystickiem (Przedramię + Obrót kabiny)
+                // A / D = Obrót wieżyczki / kabiny (Swing Left / Right)
+                if (keyLeft) cabYaw -= 1.0F;
+                if (keyRight) cabYaw += 1.0F;
 
-                // W / S or Up/Down Arrow raises & lowers boom
-                if (keyForward || arrowUp) boom += 1.0F;
-                if (keyBackward || arrowDown) boom -= 1.0F;
+                // W / S = Przedramię (Stick Out / In)
+                if (keyForward) stick += 1.0F;
+                if (keyBackward) stick -= 1.0F;
             }
 
-            // Stick and Bucket controls are available in both modes
-            if (stickOut) stick += 1.0F;
-            if (stickIn) stick -= 1.0F;
-            if (bucketCurl) bucket += 1.0F; // Curl inward
-            if (bucketDump) bucket -= 1.0F; // Dump outward
+            // Pomocnicze klawisze przedramienia (R / F)
+            if (stickOutKey) stick += 1.0F;
+            if (stickInKey) stick -= 1.0F;
 
             boolean changed = currentMode != lastMode
                     || throttle != lastThrottle
