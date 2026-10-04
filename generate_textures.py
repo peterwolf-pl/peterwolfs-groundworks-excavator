@@ -3,11 +3,12 @@ import os
 from PIL import Image, ImageDraw
 
 def create_excavator_texture():
-    img = Image.new('RGBA', (128, 128), (0, 0, 0, 0))
+    # 512x512 texture with 100% non-overlapping UV allocations
+    img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     # ── Industrial Palette ─────────────────────────────────────────────
-    c_yellow_base = (245, 184, 0, 255)       # Rich CAT / Komatsu construction yellow
+    c_yellow_base = (245, 184, 0, 255)       # CAT/Komatsu construction yellow
     c_yellow_light = (255, 210, 50, 255)     # Highlight bevel edge
     c_yellow_dark = (195, 142, 0, 255)       # Shaded yellow panel recess
     c_yellow_line = (150, 108, 0, 255)       # Panel separation groove
@@ -20,10 +21,10 @@ def create_excavator_texture():
     c_track_cleat = (56, 58, 62, 255)        # Steel grouser bar / cleat
     c_track_roller = (75, 78, 85, 255)       # Track guide rollers & sprockets
 
-    c_glass_tint = (138, 200, 232, 200)      # Tinted safety cabin glass
-    c_glass_glare = (190, 230, 255, 220)     # Glass reflection stripe
-    c_glass_frame = (24, 24, 26, 255)        # Rubber window gasket
-    c_wiper = (20, 20, 22, 255)              # Windshield wiper blade
+    # Crystal clear safety glass: only alpha=35 (86% transparent)
+    c_glass_pane = (140, 210, 245, 35)       # Subtle realistic blue tint
+    c_glass_frame = (24, 24, 26, 255)        # Thin rubber gasket seal
+    c_glass_streak = (220, 245, 255, 60)     # Faint sun reflection line
 
     c_counterweight = (36, 37, 40, 255)      # Heavy ballast counterweight
     c_hazard_yellow = (245, 184, 0, 255)     # Safety hazard diagonal stripe yellow
@@ -32,146 +33,133 @@ def create_excavator_texture():
     c_beacon_base = (28, 29, 32, 255)        # Strobe beacon mount
     c_beacon_amber = (255, 146, 0, 255)      # Amber strobe lens dome
     c_beacon_bright = (255, 220, 40, 255)    # Flashing bright core bulb
-    c_beacon_glow = (255, 180, 20, 255)
 
-    c_exhaust_metal = (55, 56, 60, 255)      # Heat-treated exhaust pipe
-    c_exhaust_soot = (18, 18, 20, 255)       # Exhaust tip carbon soot
-    c_mirror_frame = (25, 26, 28, 255)       # Mirror housing
-    c_mirror_glass = (195, 215, 235, 255)    # Reflective rearview mirror
+    c_exhaust_metal = (55, 56, 60, 255)      # Exhaust stack
+    c_mirror_frame = (25, 26, 28, 255)
+    c_mirror_glass = (195, 215, 235, 255)
 
     c_hydraulic_cyl = (38, 40, 44, 255)      # Cylinder outer barrel
     c_hydraulic_chrome = (230, 238, 248, 255)# Chrome mirror rod
-    c_hydraulic_gland = (60, 62, 68, 255)    # Cylinder gland nut
+    c_hydraulic_gland = (60, 62, 68, 255)
 
     c_bucket_body = (52, 54, 58, 255)        # Forged scoop shell
     c_bucket_lip = (85, 90, 98, 255)         # Cutting lip plate
-    c_bucket_wear = (175, 182, 192, 255)     # Freshly scraped steel teeth & edge wear
-    c_teeth_core = (195, 202, 212, 255)      # Hardened chisel tooth tips
+    c_bucket_wear = (175, 182, 192, 255)     # Freshly scraped steel
+    c_teeth_core = (205, 212, 222, 255)      # Hardened chisel tooth tips
     c_dirt = (134, 90, 61, 255)              # Granular soil inside bucket
     c_dirt_dark = (102, 68, 45, 255)
+    c_seat_leather = (35, 36, 40, 255)
 
-    # ── 1. Undercarriage & Center Frame (0, 0) to (76, 40) ─────────────
-    draw.rectangle([0, 0, 76, 40], fill=c_dark_iron)
-    for y in range(0, 40, 4):
-        draw.line([(0, y), (76, y)], fill=c_iron_recess)
-    for x in range(0, 76, 6):
-        draw.line([(x, 0), (x, 40)], fill=c_iron_light)
+    # ── ROW 1 (v = 0 .. 70) ───────────────────────────────────────────
+    # 1. "track_belt": u=0, v=0, w=132, h=70
+    draw.rectangle([0, 0, 132, 70], fill=c_track_belt)
+    for x in range(0, 132, 4):
+        draw.line([(x, 0), (x, 70)], fill=c_track_cleat)
+        draw.line([(x + 1, 0), (x + 1, 70)], fill=c_iron_recess)
 
-    # Turntable ring (0, 46) to (32, 48)
-    draw.rectangle([0, 46, 32, 48], fill=c_iron_light)
+    # 2. "deck_plate": u=136, v=0, w=160, h=47
+    draw.rectangle([136, 0, 136 + 160, 47], fill=c_dark_iron)
+    for x in range(136, 136 + 160, 8):
+        draw.line([(x, 0), (x, 47)], fill=c_iron_light)
 
-    # ── 2. Tracks & Rollers (0, 64) to (100, 80) ──────────────────────
-    draw.rectangle([0, 64, 76, 80], fill=c_track_belt)
-    for x in range(0, 76, 3):
-        draw.line([(x, 64), (x, 80)], fill=c_track_cleat)
-        draw.line([(x + 1, 64), (x + 1, 80)], fill=c_iron_recess)
-    # Sprockets & guide rollers: (76, 64) to (100, 80)
-    draw.rectangle([76, 64, 100, 80], fill=c_track_roller)
-    draw.rectangle([78, 66, 98, 78], outline=c_iron_light)
+    # 3. "chassis_frame": u=300, v=0, w=120, h=46
+    draw.rectangle([300, 0, 300 + 120, 46], fill=c_dark_iron)
+    draw.rectangle([300, 0, 300 + 120, 46], outline=c_iron_light)
 
-    # ── 3. Rear Counterweight & Hazard Stripes (0, 47) to (36, 63) ────
-    draw.rectangle([0, 47, 36, 63], fill=c_counterweight)
-    # Diagonal safety hazard chevrons across lower counterweight
-    for i in range(-10, 45, 6):
-        draw.polygon([(i, 63), (i + 4, 63), (i + 8, 54), (i + 4, 54)], fill=c_hazard_yellow)
-    draw.rectangle([0, 53, 36, 54], fill=c_iron_light)
+    # ── ROW 2 (v = 74 .. 118) ─────────────────────────────────────────
+    # 4. "engine_house": u=0, v=74, w=104, h=44
+    draw.rectangle([0, 74, 104, 74 + 44], fill=c_yellow_base)
+    draw.rectangle([0, 74, 103, 74 + 43], outline=c_yellow_light)
+    # Radiator louvers
+    draw.rectangle([10, 80, 50, 110], fill=c_iron_recess)
+    for y in range(82, 110, 3):
+        draw.line([(12, y), (48, y)], fill=c_iron_light)
 
-    # ── 4. Engine Hood & Machinery House (80, 0) to (128, 44) ─────────
-    draw.rectangle([80, 0, 128, 44], fill=c_yellow_base)
-    draw.rectangle([80, 0, 127, 43], outline=c_yellow_light)
-    # Radiator ventilation louver louvers
-    draw.rectangle([86, 6, 122, 28], fill=c_iron_recess)
-    for y in range(8, 28, 3):
-        draw.line([(88, y), (120, y)], fill=c_iron_light)
-    # Service door handles
-    draw.rectangle([86, 34, 94, 36], fill=c_iron_light)
-    draw.rectangle([112, 34, 120, 36], fill=c_iron_light)
+    # 5. "stick": u=108, v=74, w=86, h=43
+    draw.rectangle([108, 74, 108 + 86, 74 + 43], fill=c_yellow_base)
+    draw.rectangle([112, 78, 108 + 82, 74 + 39], outline=c_yellow_dark)
 
-    # ── 5. Operator Cabin Walls & Pillars (80, 44) to (128, 68) ────────
-    draw.rectangle([80, 44, 128, 68], fill=c_yellow_base)
-    draw.rectangle([80, 44, 127, 67], outline=c_yellow_dark)
+    # 6. "boom_lower": u=198, v=74, w=78, h=40
+    draw.rectangle([198, 74, 198 + 78, 74 + 40], fill=c_yellow_base)
+    draw.rectangle([202, 78, 198 + 74, 74 + 36], outline=c_yellow_dark)
+    # Pivot pin
+    draw.ellipse([204, 82, 214, 92], fill=c_iron_recess, outline=c_iron_light)
 
-    # ── 5B. Real Tinted Safety Glass Windows (38, 44) to (78, 68) ──────
-    # Semi-transparent tinted cyan glass (alpha=130) with glare and rubber seal
-    c_glass_pane = (120, 195, 235, 130)
-    c_glass_streak = (220, 245, 255, 180)
-    draw.rectangle([38, 44, 78, 68], fill=c_glass_pane)
-    draw.rectangle([38, 44, 77, 67], outline=c_glass_frame)
-    # Diagonal sun glare reflection streaks across windshield
-    draw.line([(42, 66), (62, 46)], fill=c_glass_streak, width=2)
-    draw.line([(52, 66), (72, 46)], fill=c_glass_streak, width=1)
-    # Windshield wiper blade at rest
-    draw.line([(58, 47), (58, 65)], fill=c_wiper, width=1)
+    # 7. "boom_upper": u=280, v=74, w=64, h=33
+    draw.rectangle([280, 74, 280 + 64, 74 + 33], fill=c_yellow_base)
+    draw.rectangle([284, 78, 280 + 60, 74 + 29], outline=c_yellow_dark)
 
-    # Cab Roof & Sun Visor: (76, 84) to (108, 94)
-    draw.rectangle([76, 84, 108, 94], fill=c_dark_iron)
-    draw.rectangle([76, 84, 108, 86], fill=c_iron_light)
+    # 8. "glass_side": u=348, v=74, w=38, h=32
+    draw.rectangle([348, 74, 348 + 38, 74 + 32], fill=c_glass_pane)
+    draw.rectangle([348, 74, 348 + 37, 74 + 31], outline=c_glass_frame)
+    draw.line([(352, 74 + 28), (370, 74 + 4)], fill=c_glass_streak, width=1)
 
-    # ── 6. Flashing Warning Beacon ("Kogut") (112, 68) to (128, 92) ───
-    # Beacon Base: (112, 68) to (128, 74)
-    draw.rectangle([112, 68, 128, 74], fill=c_beacon_base)
-    draw.rectangle([114, 69, 126, 73], fill=c_iron_light)
-    # Amber Dome Lens: (112, 74) to (128, 85)
-    draw.rectangle([112, 74, 128, 85], fill=c_beacon_amber)
-    draw.rectangle([114, 76, 126, 83], fill=c_beacon_glow)
-    # Bright Rotating Reflector Core: (112, 86) to (128, 92)
-    draw.rectangle([112, 86, 128, 92], fill=c_beacon_bright)
-    draw.rectangle([116, 88, 124, 90], fill=(255, 255, 255, 255))
+    # 9. "cylinders": u=390, v=74, w=56, h=28
+    draw.rectangle([390, 74, 390 + 56, 74 + 28], fill=c_hydraulic_cyl)
+    draw.rectangle([398, 78, 390 + 48, 74 + 22], fill=c_hydraulic_chrome)
 
-    # ── 7. Exhaust Stack & Rearview Mirror (112, 92) to (128, 112) ────
-    # Exhaust pipe: (112, 92) to (128, 103)
-    draw.rectangle([112, 92, 128, 103], fill=c_exhaust_metal)
-    draw.rectangle([112, 92, 128, 94], fill=c_exhaust_soot)
-    # Rearview Mirror: (112, 104) to (128, 112)
-    draw.rectangle([112, 104, 128, 112], fill=c_mirror_frame)
-    draw.rectangle([114, 106, 126, 110], fill=c_mirror_glass)
+    # ── ROW 3 (v = 122 .. 148) ────────────────────────────────────────
+    # 10. "cab_roof": u=0, v=122, w=80, h=26
+    draw.rectangle([0, 122, 80, 122 + 26], fill=c_dark_iron)
+    draw.rectangle([0, 122, 79, 122 + 25], outline=c_iron_light)
 
-    # ── 8. Main Gooseneck Boom (0, 80) to (76, 115) ───────────────────
-    draw.rectangle([0, 80, 76, 115], fill=c_yellow_base)
-    # Welded reinforcement gusset plates
-    draw.rectangle([4, 83, 32, 101], fill=c_yellow_dark)
-    draw.rectangle([4, 83, 32, 101], outline=c_yellow_line)
-    draw.rectangle([44, 83, 72, 101], fill=c_yellow_dark)
-    draw.rectangle([44, 83, 72, 101], outline=c_yellow_line)
-    # Pivot pin grease nipples (dark steel circles)
-    draw.ellipse([6, 85, 12, 91], fill=c_iron_recess, outline=c_iron_light)
-    draw.ellipse([66, 85, 72, 91], fill=c_iron_recess, outline=c_iron_light)
+    # 11. "bucket_lrg": u=84, v=122, w=70, h=26
+    draw.rectangle([84, 122, 84 + 70, 122 + 26], fill=c_bucket_body)
+    draw.rectangle([84, 122, 84 + 69, 122 + 25], outline=c_bucket_lip)
 
-    # Hydraulic Lift & Stick Cylinders (76, 110) to (110, 128)
-    draw.rectangle([76, 110, 110, 120], fill=c_hydraulic_cyl)
-    draw.rectangle([80, 112, 106, 118], fill=c_hydraulic_chrome)
-    draw.rectangle([78, 111, 82, 119], fill=c_hydraulic_gland)
+    # 12. "counterweight": u=158, v=122, w=92, h=24
+    draw.rectangle([158, 122, 158 + 92, 122 + 24], fill=c_counterweight)
+    # Hazard stripes
+    for i in range(158, 158 + 92, 8):
+        draw.polygon([(i, 122 + 24), (i + 4, 122 + 24), (i + 8, 122 + 12), (i + 4, 122 + 12)], fill=c_hazard_yellow)
 
-    draw.rectangle([48, 115, 76, 125], fill=c_hydraulic_cyl)
-    draw.rectangle([52, 117, 72, 123], fill=c_hydraulic_chrome)
+    # 13. "cab_frame": u=254, v=122, w=32, h=24
+    draw.rectangle([254, 122, 254 + 32, 122 + 24], fill=c_yellow_base)
+    draw.rectangle([254, 122, 254 + 31, 122 + 23], outline=c_yellow_dark)
 
-    # ── 9. Dipper Stick (0, 120) to (48, 128) ─────────────────────────
-    draw.rectangle([0, 120, 48, 128], fill=c_yellow_base)
-    draw.rectangle([8, 122, 40, 126], fill=c_yellow_dark)
-    draw.ellipse([2, 122, 6, 126], fill=c_iron_recess)
+    # 14. "bucket_std": u=290, v=122, w=52, h=24
+    draw.rectangle([290, 122, 290 + 52, 122 + 24], fill=c_bucket_body)
+    draw.rectangle([290, 122, 290 + 51, 122 + 23], outline=c_bucket_lip)
 
-    # ── 10. Heavy Backhoe Scoop Bucket (74, 94) to (128, 128) ─────────
-    draw.rectangle([74, 94, 128, 128], fill=c_bucket_body)
-    # Welded wear strips on scoop cheeks
-    draw.rectangle([76, 96, 88, 124], fill=c_bucket_lip)
-    # Cutting lip plate
-    draw.rectangle([90, 108, 128, 116], fill=c_bucket_lip)
-    # Fresh metallic scrape marks on cutting edge
-    draw.rectangle([90, 114, 126, 118], fill=c_bucket_wear)
-    # Hardened chisel teeth (90, 119) to (118, 123)
-    draw.rectangle([90, 119, 118, 123], fill=c_teeth_core)
-    draw.rectangle([90, 121, 118, 123], fill=c_bucket_wear)
+    # 15. "sprockets": u=346, v=122, w=38, h=20
+    draw.rectangle([346, 122, 346 + 38, 122 + 20], fill=c_track_roller)
 
-    # Soil fill texture inside bucket: (90, 123) to (128, 128)
-    draw.rectangle([90, 123, 128, 128], fill=c_dirt)
-    for x in range(90, 128, 2):
-        for y in range(123, 128, 2):
-            if (x + y) % 3 == 0:
+    # 16. "soil": u=388, v=122, w=56, h=19
+    draw.rectangle([388, 122, 388 + 56, 122 + 19], fill=c_dirt)
+    for x in range(388, 388 + 56, 3):
+        for y in range(122, 122 + 19, 3):
+            if (x + y) % 4 == 0:
                 img.putpixel((x, y), c_dirt_dark)
+
+    # 17. "turntable_ring": u=448, v=122, w=64, h=18
+    draw.rectangle([448, 122, 448 + 64, 122 + 18], fill=c_iron_light)
+
+    # ── ROW 4 (v = 152 .. 170) ────────────────────────────────────────
+    # 18. "glass_windshield": u=0, v=152, w=26, h=17
+    draw.rectangle([0, 152, 26, 152 + 17], fill=c_glass_pane)
+    draw.rectangle([0, 152, 25, 152 + 16], outline=c_glass_frame)
+    draw.line([(4, 152 + 14), (20, 152 + 2)], fill=c_glass_streak, width=1)
+
+    # 19. "seat": u=30, v=152, w=32, h=16
+    draw.rectangle([30, 152, 30 + 32, 152 + 16], fill=c_seat_leather)
+
+    # 20. "exhaust": u=66, v=152, w=16, h=14
+    draw.rectangle([66, 152, 66 + 16, 152 + 14], fill=c_exhaust_metal)
+
+    # 21. "beacon": u=86, v=152, w=20, h=11
+    draw.rectangle([86, 152, 86 + 20, 152 + 6], fill=c_beacon_base)
+    draw.rectangle([86, 152 + 6, 86 + 20, 152 + 11], fill=c_beacon_amber)
+
+    # 22. "mirror": u=110, v=152, w=10, h=8
+    draw.rectangle([110, 152, 110 + 10, 152 + 8], fill=c_mirror_frame)
+    draw.rectangle([111, 153, 110 + 8, 152 + 6], fill=c_mirror_glass)
+
+    # 23. "teeth": u=124, v=152, w=16, h=8
+    draw.rectangle([124, 152, 124 + 16, 152 + 8], fill=c_teeth_core)
 
     os.makedirs("src/main/resources/assets/pw_groundworks_excavator/textures/entity", exist_ok=True)
     img.save("src/main/resources/assets/pw_groundworks_excavator/textures/entity/excavator.png")
-    print("Upgraded 128x128 entity texture created.")
+    print("512x512 non-overlapping master entity texture created successfully.")
 
 def create_item_texture():
     # 32x32 inventory icon
@@ -179,7 +167,6 @@ def create_item_texture():
     draw = ImageDraw.Draw(img)
 
     c_yellow = (245, 184, 0, 255)
-    c_yellow_hi = (255, 215, 60, 255)
     c_dark = (44, 45, 48, 255)
     c_track = (32, 33, 36, 255)
     c_glass = (140, 205, 240, 255)
@@ -199,7 +186,7 @@ def create_item_texture():
     draw.rectangle([10, 16, 17, 21], fill=c_yellow)
     draw.line([(12, 13), (12, 16)], fill=(50, 52, 55, 255), width=1) # exhaust
 
-    # Cab
+    # Cab with open glass
     draw.rectangle([13, 11, 19, 21], fill=c_yellow)
     draw.rectangle([14, 13, 18, 17], fill=c_glass) # Window
     # Flashing warning beacon on cab roof!

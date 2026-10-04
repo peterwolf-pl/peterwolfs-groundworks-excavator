@@ -235,8 +235,8 @@ public final class ArmKinematics {
      */
     public static Vec3 getBeaconWorldPosition(Vec3 basePos, float baseYaw, float upperYaw) {
         Matrix4f turntableMat = computeTurntableMatrix(basePos, baseYaw, 0.0f, 0.0f, upperYaw);
-        // Warning beacon in upper_body: beaconBase offset(-10.0F, -23.0F, 12.0F)
-        Vector4f beaconVec = new Vector4f(-10.0f / 16.0f, -25.0f / 16.0f, 12.0f / 16.0f, 1.0f);
+        // Warning beacon on cab roof: beaconBase offset(-10.0F, -27.0F, 12.0F)
+        Vector4f beaconVec = new Vector4f(-10.0f / 16.0f, -27.0f / 16.0f, 12.0f / 16.0f, 1.0f);
         turntableMat.transform(beaconVec);
         return new Vec3(beaconVec.x, beaconVec.y, beaconVec.z);
     }
