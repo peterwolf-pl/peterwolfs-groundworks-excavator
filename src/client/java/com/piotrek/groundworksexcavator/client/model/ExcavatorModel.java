@@ -26,7 +26,8 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
     private final ModelPart bucketLarge;
     private final ModelPart bucketContentsStandard;
     private final ModelPart bucketContentsLarge;
-    private final ModelPart beaconReflector;
+    private final ModelPart beaconReflectorOn;
+    private final ModelPart beaconReflectorOff;
 
     public ExcavatorModel(ModelPart root) {
         super(root);
@@ -39,7 +40,9 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucketLarge = this.bucket.getChild("bucket_large");
         this.bucketContentsStandard = this.bucketStandard.getChild("bucket_contents_std");
         this.bucketContentsLarge = this.bucketLarge.getChild("bucket_contents_large");
-        this.beaconReflector = this.upperBody.getChild("beacon_base").getChild("beacon_reflector");
+        ModelPart beaconBase = this.upperBody.getChild("beacon_base");
+        this.beaconReflectorOn = beaconBase.getChild("beacon_reflector_on");
+        this.beaconReflectorOff = beaconBase.getChild("beacon_reflector_off");
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -159,19 +162,27 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 9.0F, 0.0F)
         );
 
-        // Flashing Warning Beacon on Cab Roof: 20x11 UV [86..106, 152..163]
+        // Flashing Warning Beacon on Cab Roof (Base mount + Amber Dome)
         PartDefinition beaconBase = upperBody.addOrReplaceChild(
                 "beacon_base",
                 CubeListBuilder.create()
                         .texOffs(86, 152).addBox(-2.5F, -2.0F, -2.5F, 5.0F, 2.0F, 5.0F)
-                        .texOffs(86, 158).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 4.0F, 4.0F),
+                        .texOffs(86, 160).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 4.0F, 4.0F),
                 PartPose.offset(-10.0F, -27.0F, 12.0F)
         );
 
+        // Blinking strobe core: ON (bright yellow light) and OFF (dim amber)
         beaconBase.addOrReplaceChild(
-                "beacon_reflector",
+                "beacon_reflector_on",
                 CubeListBuilder.create()
-                        .texOffs(86, 158).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
+                        .texOffs(108, 160).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
+        );
+
+        beaconBase.addOrReplaceChild(
+                "beacon_reflector_off",
+                CubeListBuilder.create()
+                        .texOffs(108, 152).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
@@ -294,13 +305,16 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucketContentsLarge.visible = isLarge && state.fillRatio > 0.02F;
         this.bucketContentsLarge.yScale = Math.max(0.15F, state.fillRatio);
 
-        // Rotating warning beacon reflector when machine is operating
+        // Flashing yellow warning beacon: rotates and blinks bright yellow light during operation
         if (state.isOperating) {
-            this.beaconReflector.yRot = state.beaconSpin;
-            this.beaconReflector.visible = true;
+            this.beaconReflectorOn.yRot = state.beaconSpin;
+            this.beaconReflectorOff.yRot = state.beaconSpin;
+            // Alternates blinking between bright flash and dim amber every few ticks
+            this.beaconReflectorOn.visible = state.beaconFlash;
+            this.beaconReflectorOff.visible = !state.beaconFlash;
         } else {
-            this.beaconReflector.yRot = 0.0F;
-            this.beaconReflector.visible = false;
+            this.beaconReflectorOn.visible = false;
+            this.beaconReflectorOff.visible = false;
         }
     }
 }
