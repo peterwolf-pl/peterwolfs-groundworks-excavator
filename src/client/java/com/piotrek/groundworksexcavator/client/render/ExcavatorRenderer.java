@@ -83,14 +83,27 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
         this.model.setupAnim(state);
 
+        // 1. Render solid opaque machine parts (tracks, chassis, engine, cab frame, boom, bucket)
+        this.model.getCabinGlass().visible = false;
         collector.submitModel(
                 this.model,
                 state,
                 stack,
-                RenderTypes.entityTranslucent(TEXTURE),
+                RenderTypes.entityCutout(TEXTURE),
                 state.lightCoords,
                 OverlayTexture.NO_OVERLAY,
                 state.outlineColor
+        );
+
+        // 2. Render cabin glass window panes in the translucent pass
+        this.model.getCabinGlass().visible = true;
+        collector.order(1).submitModelPart(
+                this.model.getCabinGlass(),
+                stack,
+                RenderTypes.entityTranslucent(TEXTURE),
+                state.lightCoords,
+                OverlayTexture.NO_OVERLAY,
+                null
         );
 
         stack.popPose();
