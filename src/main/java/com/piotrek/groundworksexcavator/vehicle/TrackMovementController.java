@@ -158,7 +158,7 @@ public class TrackMovementController {
         vehicleRoll = Mth.lerp(0.15F, vehicleRoll, targetRoll);
     }
 
-    private double sampleSurfaceHeight(ServerLevel level, Vec3 point) {
+    public static double sampleSurfaceHeight(ServerLevel level, Vec3 point) {
         BlockPos pos = BlockPos.containing(point.x, point.y, point.z);
         // Check for Groundworks granular surface height
         int localX = (int) Math.floor((point.x - pos.getX()) * 8.0);
@@ -169,6 +169,11 @@ public class TrackMovementController {
         int height = GroundworksExcavationAdapter.getSurfaceHeight(level, pos, localX, localZ);
         if (height >= 0) {
             return pos.getY() + (height + 1) / 8.0D;
+        }
+
+        // Check if block at pos is solid
+        if (level.getBlockState(pos).isSolid()) {
+            return pos.getY() + 1.0D;
         }
 
         // Check if block below is solid
