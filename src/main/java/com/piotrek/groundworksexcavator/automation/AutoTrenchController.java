@@ -30,6 +30,10 @@ public final class AutoTrenchController {
     public static final float DUMP_BUCKET = 60.0F;
     public static final float RIGHT_DUMP_YAW = 90.0F;
 
+    public static final int CUTS_PER_STATION = 2;
+    public static final int STALL_THRESHOLD_TICKS = 8;
+    public static final int STALL_RELIEF_TICKS = 8;
+
     private static final float ANGLE_TOLERANCE = 1.25F;
     private static final float REVERSE_THROTTLE = -0.65F;
     private static final double REVERSE_DISTANCE = 1.0D;
@@ -43,6 +47,7 @@ public final class AutoTrenchController {
         PENETRATE_FOR_CUT,
         CUT_AND_CURL,
         SCOOP_AND_CURL,
+        RELIEVE_STALL,
         LIFT_AND_SWING_RIGHT,
         DUMP_RIGHT,
         RESET_AND_REVERSE
@@ -74,6 +79,13 @@ public final class AutoTrenchController {
     private Phase phase = Phase.POSITION_FOR_CUT;
     private int settledTicks;
     private int completedSections;
+    private int cutsAtCurrentStation;
+    private int stallTicks;
+    private int reliefTicks;
+    private float prevCabin;
+    private float prevBoom;
+    private float prevStick;
+    private float prevBucket;
     private Vec3 reverseOrigin;
 
     public void start() {
@@ -81,12 +93,18 @@ public final class AutoTrenchController {
         this.phase = Phase.POSITION_FOR_CUT;
         this.settledTicks = 0;
         this.completedSections = 0;
+        this.cutsAtCurrentStation = 0;
+        this.stallTicks = 0;
+        this.reliefTicks = 0;
         this.reverseOrigin = null;
     }
 
     public void stop() {
         this.active = false;
         this.settledTicks = 0;
+        this.cutsAtCurrentStation = 0;
+        this.stallTicks = 0;
+        this.reliefTicks = 0;
         this.reverseOrigin = null;
     }
 
@@ -101,11 +119,39 @@ public final class AutoTrenchController {
             changePhase(Phase.LIFT_AND_SWING_RIGHT);
         }
 
+        boolean isDiggingPhase = phase == Phase.PENETRATE_FOR_CUT
+                || phase == Phase.CUT_AND_CURL
+                || phase == Phase.SCOOP_AND_CURL;
+        if (isDiggingPhase) {
+            float movement = Math.abs(state.boom() - prevBoom)
+                    + Math.abs(state.stick() - prevStick)
+                    + Math.abs(state.bucket() - prevBucket)
+                    + Math.abs(state.cabin() - prevCabin);
+            if (movement < 0.05F) {
+                stallTicks++;
+                if (stallTicks >= STALL_THRESHOLD_TICKS) {
+                    changePhase(Phase.RELIEVE_STALL);
+                    stallTicks = 0;
+                    reliefTicks = 0;
+                }
+            } else {
+                stallTicks = 0;
+            }
+        } else if (phase != Phase.RELIEVE_STALL) {
+            stallTicks = 0;
+        }
+
+        prevCabin = state.cabin();
+        prevBoom = state.boom();
+        prevStick = state.stick();
+        prevBucket = state.bucket();
+
         return switch (phase) {
             case POSITION_FOR_CUT -> positionForCut(state);
             case PENETRATE_FOR_CUT -> penetrateForCut(state);
             case CUT_AND_CURL -> cutAndCurl(state);
             case SCOOP_AND_CURL -> scoopAndCurl(state);
+            case RELIEVE_STALL -> relieveStall(state);
             case LIFT_AND_SWING_RIGHT -> liftAndSwingRight(state);
             case DUMP_RIGHT -> dumpRight(state);
             case RESET_AND_REVERSE -> resetAndReverse(state);
@@ -153,6 +199,21 @@ public final class AutoTrenchController {
         return controls;
     }
 
+    private Controls relieveStall(Snapshot state) {
+        reliefTicks++;
+        if (reliefTicks >= STALL_RELIEF_TICKS) {
+            reliefTicks = 0;
+            stallTicks = 0;
+            if (state.storedUnits() > 0) {
+                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            } else {
+                changePhase(Phase.SCOOP_AND_CURL);
+            }
+            return Controls.STOPPED;
+        }
+        return new Controls(0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F);
+    }
+
     private Controls liftAndSwingRight(Snapshot state) {
         Controls controls = target(
                 state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, HELD_BUCKET, 0.0F);
@@ -167,8 +228,14 @@ public final class AutoTrenchController {
                 state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, DUMP_BUCKET, 0.0F);
         if (state.storedUnits() == 0
                 && atTarget(state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, DUMP_BUCKET)) {
-            this.reverseOrigin = state.position();
-            changePhase(Phase.RESET_AND_REVERSE);
+            cutsAtCurrentStation++;
+            if (cutsAtCurrentStation < CUTS_PER_STATION) {
+                changePhase(Phase.POSITION_FOR_CUT);
+            } else {
+                cutsAtCurrentStation = 0;
+                this.reverseOrigin = state.position();
+                changePhase(Phase.RESET_AND_REVERSE);
+            }
         }
         return controls;
     }
@@ -179,6 +246,7 @@ public final class AutoTrenchController {
         double reversed = reverseOrigin.subtract(state.position()).dot(forward);
         if (reversed >= REVERSE_DISTANCE) {
             completedSections++;
+            cutsAtCurrentStation = 0;
             changePhase(Phase.POSITION_FOR_CUT);
             reverseOrigin = null;
             return Controls.STOPPED;
@@ -247,6 +315,16 @@ public final class AutoTrenchController {
         this.reverseOrigin = reverseOrigin;
         this.settledTicks = 0;
         this.completedSections = 0;
+        this.cutsAtCurrentStation = 0;
+        this.stallTicks = 0;
+        this.reliefTicks = 0;
+    }
+
+    void setPhaseForTest(Phase phase) {
+        this.phase = phase;
+        this.settledTicks = 0;
+        this.stallTicks = 0;
+        this.reliefTicks = 0;
     }
 
     public boolean isActive() {
@@ -261,9 +339,14 @@ public final class AutoTrenchController {
         return completedSections;
     }
 
+    public int cutsAtCurrentStation() {
+        return cutsAtCurrentStation;
+    }
+
     public boolean prefersBucketIntake() {
         return active && (phase == Phase.PENETRATE_FOR_CUT
                 || phase == Phase.CUT_AND_CURL
-                || phase == Phase.SCOOP_AND_CURL);
+                || phase == Phase.SCOOP_AND_CURL
+                || phase == Phase.RELIEVE_STALL);
     }
 }
