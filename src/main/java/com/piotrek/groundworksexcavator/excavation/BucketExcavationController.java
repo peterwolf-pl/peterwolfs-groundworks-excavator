@@ -64,19 +64,21 @@ public final class BucketExcavationController {
         GranularMaterial lastMaterial = GranularMaterial.EMPTY;
         Vec3 lastHit = sweep.hitLocation();
         Set<BlockPos> processedBlocks = new HashSet<>();
-        int maxIntake = (bucket.capacity() >= 512) ? 64 : MAX_UNITS_PER_TICK;
+        boolean isLarge = bucket.capacity() >= 512;
+        int maxIntake = isLarge ? 128 : MAX_UNITS_PER_TICK;
 
         for (SweptBucketVolume.ToothContact contact : sweep.contacts()) {
             if (bucket.remainingCapacity() <= 0 || totalExcavated >= maxIntake) {
                 break;
             }
 
-            BlockPos targetPos = resolveDiggableBlock(level, contact);
+            BlockPos targetPos = resolveDiggableBlock(level, contact, isLarge);
             if (targetPos == null || !processedBlocks.add(targetPos)) {
                 continue;
             }
 
-            int needed = Math.min(bucket.remainingCapacity(), maxIntake - totalExcavated);
+            int perContactMax = isLarge ? 64 : 32;
+            int needed = Math.min(bucket.remainingCapacity(), Math.min(perContactMax, maxIntake - totalExcavated));
             if (needed <= 0) {
                 break;
             }
@@ -97,6 +99,25 @@ public final class BucketExcavationController {
                     spawnDigParticles(level, contact.worldPoint(), result.material());
                 }
             }
+
+            // If large bucket is biting deep into ground, also take from block directly below
+            if (isLarge && bucket.remainingCapacity() > 0 && totalExcavated < maxIntake) {
+                BlockPos belowPos = targetPos.below();
+                if (processedBlocks.add(belowPos) && GroundworksExcavationAdapter.isDiggable(level, belowPos)) {
+                    int extraNeeded = Math.min(bucket.remainingCapacity(), Math.min(48, maxIntake - totalExcavated));
+                    if (extraNeeded > 0) {
+                        ExcavationResult extraResult = GroundworksExcavationAdapter.excavateAt(
+                                level, belowPos, contact.worldPoint().subtract(0, 0.5, 0), extraNeeded
+                        );
+                        if (extraResult.success()) {
+                            int extraAccepted = bucket.acceptMaterial(extraResult.material(), extraResult.unitsRemoved());
+                            if (extraAccepted > 0) {
+                                totalExcavated += extraAccepted;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (totalExcavated > 0) {
@@ -107,10 +128,9 @@ public final class BucketExcavationController {
     }
 
     /**
-     * Resolves the target diggable block position. If tooth is in air but skimming within 35cm
-     * of a diggable soil block below, targets the block below.
+     * Resolves the target diggable block position. If tooth is in air but skimming near a diggable soil block below, targets the block below.
      */
-    private static BlockPos resolveDiggableBlock(ServerLevel level, SweptBucketVolume.ToothContact contact) {
+    private static BlockPos resolveDiggableBlock(ServerLevel level, SweptBucketVolume.ToothContact contact, boolean isLarge) {
         BlockPos pos = contact.pos();
         if (GroundworksExcavationAdapter.isDiggable(level, pos)) {
             return pos;
@@ -119,7 +139,8 @@ public final class BucketExcavationController {
         // Surface skimming check
         Vec3 pt = contact.worldPoint();
         double fractionalY = pt.y - Math.floor(pt.y);
-        if (fractionalY < 0.35D) {
+        double maxSkim = isLarge ? 0.65D : 0.35D;
+        if (fractionalY < maxSkim) {
             BlockPos below = pos.below();
             if (GroundworksExcavationAdapter.isDiggable(level, below)) {
                 return below;

@@ -33,6 +33,16 @@ public class ArmKinematicsTest {
         Vec3 tLast = pose.teethPoints().get(pose.teethPoints().size() - 1);
         double span = t0.distanceTo(tLast);
         assertTrue(span > 0.5D && span < 0.9D, "Teeth width must span ~0.65m. Actual: " + span);
+
+        // Test large bucket (7 teeth, wider span ~1.15m)
+        BucketPose poseLarge = ArmKinematics.computeBucketPose(
+                base, 0.0F, 0.0F, 0.0F, 0.0F, 15.0F, -35.0F, -10.0F, 1
+        );
+        assertEquals(7, poseLarge.teethPoints().size(), "Large bucket should have 7 cutting teeth");
+        Vec3 lt0 = poseLarge.teethPoints().get(0);
+        Vec3 ltLast = poseLarge.teethPoints().get(poseLarge.teethPoints().size() - 1);
+        double largeSpan = lt0.distanceTo(ltLast);
+        assertTrue(largeSpan > 1.0D && largeSpan < 1.4D, "Large bucket teeth must span ~1.15m. Actual: " + largeSpan);
     }
 
     @Test
