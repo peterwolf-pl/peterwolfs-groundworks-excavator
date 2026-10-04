@@ -2,6 +2,7 @@ package com.piotrek.groundworksexcavator.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import org.joml.Quaternionf;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.client.GroundworksExcavatorClient;
 import com.piotrek.groundworksexcavator.client.model.ExcavatorModel;
@@ -95,8 +96,12 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 state.outlineColor
         );
 
-        // 2. Render cabin glass window panes in the translucent pass
+        // 2. Render cabin glass window panes in the translucent pass with proper turntable transform
         this.model.getCabinGlass().visible = true;
+        stack.pushPose();
+        // ModelPart upper_body transform:
+        stack.translate(0.0F, 9.0F / 16.0F, 0.0F);
+        stack.rotate(new Quaternionf().rotationZYX(0.0F, (float) Math.toRadians(state.upperYaw), 0.0F));
         collector.order(1).submitModelPart(
                 this.model.getCabinGlass(),
                 stack,
@@ -105,6 +110,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 OverlayTexture.NO_OVERLAY,
                 null
         );
+        stack.popPose();
 
         stack.popPose();
     }
