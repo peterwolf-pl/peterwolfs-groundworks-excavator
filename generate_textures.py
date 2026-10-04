@@ -87,17 +87,21 @@ def create_excavator_texture():
     draw.rectangle([86, 34, 94, 36], fill=c_iron_light)
     draw.rectangle([112, 34, 120, 36], fill=c_iron_light)
 
-    # ── 5. Operator Cabin (80, 44) to (128, 68) ───────────────────────
+    # ── 5. Operator Cabin Walls & Pillars (80, 44) to (128, 68) ────────
     draw.rectangle([80, 44, 128, 68], fill=c_yellow_base)
-    # Large Front & Side Windows
-    draw.rectangle([83, 47, 101, 64], fill=c_glass_tint)
-    draw.rectangle([83, 47, 101, 64], outline=c_glass_frame)
-    draw.line([(85, 49), (99, 62)], fill=c_glass_glare) # Glare stripe
-    draw.line([(92, 48), (92, 63)], fill=c_wiper)       # Wiper blade
+    draw.rectangle([80, 44, 127, 67], outline=c_yellow_dark)
 
-    draw.rectangle([104, 47, 125, 64], fill=c_glass_tint)
-    draw.rectangle([104, 47, 125, 64], outline=c_glass_frame)
-    draw.line([(106, 49), (123, 62)], fill=c_glass_glare)
+    # ── 5B. Real Tinted Safety Glass Windows (38, 44) to (78, 68) ──────
+    # Semi-transparent tinted cyan glass (alpha=130) with glare and rubber seal
+    c_glass_pane = (120, 195, 235, 130)
+    c_glass_streak = (220, 245, 255, 180)
+    draw.rectangle([38, 44, 78, 68], fill=c_glass_pane)
+    draw.rectangle([38, 44, 77, 67], outline=c_glass_frame)
+    # Diagonal sun glare reflection streaks across windshield
+    draw.line([(42, 66), (62, 46)], fill=c_glass_streak, width=2)
+    draw.line([(52, 66), (72, 46)], fill=c_glass_streak, width=1)
+    # Windshield wiper blade at rest
+    draw.line([(58, 47), (58, 65)], fill=c_wiper, width=1)
 
     # Cab Roof & Sun Visor: (76, 84) to (108, 94)
     draw.rectangle([76, 84, 108, 94], fill=c_dark_iron)

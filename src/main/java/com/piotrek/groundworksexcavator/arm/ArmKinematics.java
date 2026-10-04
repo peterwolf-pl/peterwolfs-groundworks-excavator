@@ -224,8 +224,8 @@ public final class ArmKinematics {
      */
     public static Vec3 getDriverSeatWorldPosition(Vec3 basePos, float baseYaw, float upperYaw) {
         Matrix4f turntableMat = computeTurntableMatrix(basePos, baseYaw, 0.0f, 0.0f, upperYaw);
-        // Driver seat in upper_body: addBox(-14.0F, -8.0F, 2.0F, 8.0F, 6.0F, 8.0F)
-        Vector4f seatVec = new Vector4f(-10.0f / 16.0f, -8.0f / 16.0f, 6.0f / 16.0f, 1.0f);
+        // Driver seat cushion in upper_body: (-10.0F, -6.0F, 3.5F)
+        Vector4f seatVec = new Vector4f(-10.0f / 16.0f, -6.0f / 16.0f, 3.5f / 16.0f, 1.0f);
         turntableMat.transform(seatVec);
         return new Vec3(seatVec.x, seatVec.y, seatVec.z);
     }

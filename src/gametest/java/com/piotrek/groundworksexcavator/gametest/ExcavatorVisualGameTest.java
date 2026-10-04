@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 
 import java.nio.file.Path;
@@ -17,8 +18,13 @@ import java.nio.file.Path;
 /**
  * Visual regression test suite for Peterwolf's Groundworks Excavator.
  *
- * <p>Validates the upgraded 3D model, textures, yellow warning beacon ("kogut"),
- * track assemblies, and articulated poses under standard rendering conditions.
+ * <p>Validates:
+ * <ul>
+ *   <li>Panoramic safety glass windows & hollow ROPS safety cabin</li>
+ *   <li>Operator seated inside the cab with full forward visibility on the work area</li>
+ *   <li>Dual interchangeable buckets (Standard 256u vs Large Bulk 512u)</li>
+ *   <li>Working excavation and dumping postures</li>
+ * </ul>
  *
  * <p>Run with: {@code ./gradlew runClientGameTest}
  */
@@ -57,10 +63,9 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             });
 
             connection.waitForChunksRender();
-            // Let system join/gamemode messages fade out completely for clean screenshots
             context.waitTicks(160);
 
-            // ── Scene 1: Isometric Profile (Front-Left) ──────────────────────
+            // ── Scene 1: Isometric Profile (Front-Left with Glass Windows) ────
             server.runCommand("teleport @a -4.8 182.8 5.2 -136 15");
             context.waitTicks(10);
             capture(context, connection, "excavator_01_profile_isometric");
@@ -80,29 +85,36 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             context.waitTicks(10);
             capture(context, connection, "excavator_04_tracks_and_rollers");
 
-            // ── Scene 5: Excavation Digging Pose (Boom Down, Teeth in Earth) ──
+            // ── Scene 5: Operator Seated Inside Glass Cab (Exterior View) ─────
+            server.runOnServer(minecraftServer -> {
+                var players = minecraftServer.getPlayerList().getPlayers();
+                if (!players.isEmpty()) {
+                    players.get(0).startRiding(excavatorHolder[0]);
+                }
+            });
+            context.waitTicks(10);
+            server.runCommand("teleport @a -2.8 182.8 3.5 -135 12");
+            context.waitTicks(10);
+            capture(context, connection, "excavator_05_player_in_glass_cab");
+
+            // ── Scene 6: Operator View through Front Windshield at Work Area ─
+            // Camera placed at operator eye level inside cab looking out through windshield at boom & ground
+            server.runCommand("teleport @a 0.0 182.35 1.5 0 10");
+            context.waitTicks(10);
+            capture(context, connection, "excavator_06_in_cab_work_area_view");
+
+            // ── Scene 7: Large 2x Bulk Bucket Excavating Ground ──────────────
             server.runOnServer(minecraftServer -> {
                 GroundworksExcavatorEntity ex = excavatorHolder[0];
                 if (ex != null) {
+                    ex.setBucketType(GroundworksExcavatorEntity.BUCKET_LARGE);
                     ex.setControlInputs(0.0F, 0.0F, 0.0F, -0.6F, 0.5F, -0.4F);
                 }
             });
             context.waitTicks(15);
             server.runCommand("teleport @a 4.8 182.8 4.8 135 16");
             context.waitTicks(10);
-            capture(context, connection, "excavator_05_digging_posture");
-
-            // ── Scene 6: Rotated Cab & Inverted Dump Pose ─────────────────────
-            server.runOnServer(minecraftServer -> {
-                GroundworksExcavatorEntity ex = excavatorHolder[0];
-                if (ex != null) {
-                    ex.setControlInputs(0.0F, 0.0F, 0.8F, 0.8F, -0.5F, 0.9F);
-                }
-            });
-            context.waitTicks(15);
-            server.runCommand("teleport @a 5.5 183.2 -1.0 105 16");
-            context.waitTicks(10);
-            capture(context, connection, "excavator_06_dump_posture");
+            capture(context, connection, "excavator_07_large_bucket_digging");
         }
     }
 

@@ -87,7 +87,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 this.model,
                 state,
                 stack,
-                RenderTypes.entityCutout(TEXTURE),
+                RenderTypes.entityTranslucent(TEXTURE),
                 state.lightCoords,
                 OverlayTexture.NO_OVERLAY,
                 state.outlineColor
