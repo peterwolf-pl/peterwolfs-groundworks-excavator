@@ -1,0 +1,13 @@
+{
+  "item.pw_groundworks_excavator.excavator": "Groundworks Excavator",
+  "entity.pw_groundworks_excavator.excavator": "Groundworks Excavator",
+  "key.categories.pw_groundworks_excavator": "Groundworks Excavator",
+  "key.pw_groundworks_excavator.cab_left": "Rotate Cab Left",
+  "key.pw_groundworks_excavator.cab_right": "Rotate Cab Right",
+  "key.pw_groundworks_excavator.boom_up": "Raise Boom",
+  "key.pw_groundworks_excavator.boom_down": "Lower Boom",
+  "key.pw_groundworks_excavator.stick_out": "Extend Stick",
+  "key.pw_groundworks_excavator.stick_in": "Retract Stick",
+  "key.pw_groundworks_excavator.bucket_curl": "Curl Bucket Inward",
+  "key.pw_groundworks_excavator.bucket_dump": "Curl Bucket Outward (Dump)"
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "pw_groundworks_excavator",
+  "version": "${version}",
+  "name": "Peterwolf's Groundworks Excavator",
+  "description": "Functional hydraulic tracked construction excavator for Peterwolf's Groundworks.",
+  "authors": ["Piotrek"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.piotrek.groundworksexcavator.GroundworksExcavatorMod"],
+    "client": ["com.piotrek.groundworksexcavator.client.GroundworksExcavatorClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*",
+    "pw_groundworks": ">=0.1.0"
+  }
+}

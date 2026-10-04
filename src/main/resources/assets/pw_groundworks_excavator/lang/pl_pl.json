@@ -1,0 +1,13 @@
+{
+  "item.pw_groundworks_excavator.excavator": "Koparka Groundworks",
+  "entity.pw_groundworks_excavator.excavator": "Koparka Groundworks",
+  "key.categories.pw_groundworks_excavator": "Koparka Groundworks",
+  "key.pw_groundworks_excavator.cab_left": "Obrót kabiny w lewo",
+  "key.pw_groundworks_excavator.cab_right": "Obrót kabiny w prawo",
+  "key.pw_groundworks_excavator.boom_up": "Podnieś ramię (boom)",
+  "key.pw_groundworks_excavator.boom_down": "Opuść ramię (boom)",
+  "key.pw_groundworks_excavator.stick_out": "Wysuń przedramię (stick)",
+  "key.pw_groundworks_excavator.stick_in": "Cofnij przedramię (stick)",
+  "key.pw_groundworks_excavator.bucket_curl": "Zwiń łyżkę",
+  "key.pw_groundworks_excavator.bucket_dump": "Wysyp z łyżki"
+}
