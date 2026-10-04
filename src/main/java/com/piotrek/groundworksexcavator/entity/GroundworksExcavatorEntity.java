@@ -148,15 +148,16 @@ public class GroundworksExcavatorEntity extends Entity {
                     this.entityData.get(STORED_UNITS)
             );
 
-            // Flashing warning beacon ambient light effect on cab roof
-            if (this.isOperating() && (this.tickCount % 8 == 0)) {
+            // Flashing warning beacon ambient light pulse when operating
+            // Emits clean electrical/glow warning flashes instead of flame fire
+            if (this.isOperating() && (this.tickCount % 6 == 0)) {
                 Vec3 beaconPos = ArmKinematics.getBeaconWorldPosition(
                         this.position(), this.getYRot(), this.getUpperYaw()
                 );
                 this.level().addParticle(
-                        ParticleTypes.SMALL_FLAME,
-                        beaconPos.x, beaconPos.y, beaconPos.z,
-                        0.0D, 0.01D, 0.0D
+                        ParticleTypes.ELECTRIC_SPARK,
+                        beaconPos.x, beaconPos.y + 0.15D, beaconPos.z,
+                        0.0D, 0.02D, 0.0D
                 );
             }
             return;

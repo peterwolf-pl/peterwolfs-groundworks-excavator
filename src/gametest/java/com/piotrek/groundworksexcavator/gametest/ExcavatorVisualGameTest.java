@@ -127,6 +127,8 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
     private static void setupViewingPlatform(TestServerContext server) {
         server.runCommand("fill -16 " + (BASE_Y - 1) + " -16 16 " + (BASE_Y - 1) + " 16 minecraft:smooth_stone");
         server.runCommand("fill -16 " + BASE_Y + " -16 16 " + (BASE_Y + 12) + " 16 minecraft:air");
+        // Place water pool directly in front of the excavator to verify water visibility through windshield!
+        server.runCommand("fill -4 " + (BASE_Y - 1) + " 4 4 " + (BASE_Y - 1) + " 8 minecraft:water");
     }
 
     private static void capture(

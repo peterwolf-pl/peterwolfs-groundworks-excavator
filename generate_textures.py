@@ -146,9 +146,17 @@ def create_excavator_texture():
     # 20. "exhaust": u=66, v=152, w=16, h=14
     draw.rectangle([66, 152, 66 + 16, 152 + 14], fill=c_exhaust_metal)
 
-    # 21. "beacon": u=86, v=152, w=20, h=11
-    draw.rectangle([86, 152, 86 + 20, 152 + 6], fill=c_beacon_base)
-    draw.rectangle([86, 152 + 6, 86 + 20, 152 + 11], fill=c_beacon_amber)
+    # 21. "beacon": u=86, v=152, w=40, h=20
+    # Base mount: u=86, v=152
+    draw.rectangle([86, 152, 86 + 20, 152 + 8], fill=c_beacon_base)
+    draw.rectangle([88, 153, 86 + 18, 152 + 7], fill=c_iron_light)
+    # Amber dome lens: u=86, v=160
+    draw.rectangle([86, 160, 86 + 20, 160 + 10], fill=c_beacon_amber)
+    # Strobe core flash OFF (dim amber): u=108, v=152
+    draw.rectangle([108, 152, 108 + 16, 152 + 8], fill=(180, 95, 0, 255))
+    # Strobe core flash ON (brilliant electric warning yellow/gold): u=108, v=160
+    draw.rectangle([108, 160, 108 + 16, 160 + 8], fill=(255, 235, 60, 255))
+    draw.rectangle([111, 162, 108 + 13, 160 + 6], fill=(255, 255, 200, 255))
 
     # 22. "mirror": u=110, v=152, w=10, h=8
     draw.rectangle([110, 152, 110 + 10, 152 + 8], fill=c_mirror_frame)
