@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "pw_groundworks_excavator_test",
+  "version": "1.0.0",
+  "name": "Peterwolf's Groundworks Excavator Visual Client GameTests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "com.piotrek.groundworksexcavator.gametest.ExcavatorVisualGameTest"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "fabric-api": "*",
+    "pw_groundworks_excavator": "*"
+  }
+}

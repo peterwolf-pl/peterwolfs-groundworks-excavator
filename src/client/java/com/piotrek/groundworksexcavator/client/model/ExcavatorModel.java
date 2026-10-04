@@ -12,21 +12,15 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 /**
  * Geometric hierarchy model for the tracked excavator.
  *
- * <p>Hierarchy:
- * <pre>
- * root
- *  ├── undercarriage
- *  │    ├── left_track
- *  │    └── right_track
- *  └── upper_body (turntable)
- *       ├── cab (with seat and glass)
- *       ├── engine_compartment & counterweight
- *       └── boom (gooseneck curved boom)
- *            └── stick (dipper arm)
- *                 └── bucket (backhoe scoop pointing down/in)
- *                      ├── teeth
- *                      └── bucket_contents (dynamic fill height)
- * </pre>
+ * <p>Includes:
+ * <ul>
+ *   <li>Heavy crawler tracks with rollers and drive sprockets</li>
+ *   <li>Rotating upper structure with cab, rearview mirror, dual joysticks, exhaust stack</li>
+ *   <li>Flashing yellow warning beacon ("Żółty Kogut") on the cab roof with rotating reflector</li>
+ *   <li>Gooseneck heavy curved boom with twin hydraulic cylinders</li>
+ *   <li>Articulated dipper stick with top cylinder</li>
+ *   <li>Backhoe scoop bucket with hardened chisel teeth and dynamic soil fill</li>
+ * </ul>
  */
 public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
 
@@ -36,6 +30,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
     private final ModelPart stick;
     private final ModelPart bucket;
     private final ModelPart bucketContents;
+    private final ModelPart beaconReflector;
 
     public ExcavatorModel(ModelPart root) {
         super(root);
@@ -45,6 +40,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.stick = this.boom.getChild("stick");
         this.bucket = this.stick.getChild("bucket");
         this.bucketContents = this.bucket.getChild("bucket_contents");
+        this.beaconReflector = this.upperBody.getChild("beacon_base").getChild("beacon_reflector");
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -62,7 +58,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Left track crawler
+        // Left track crawler (with guide rollers & sprockets)
         undercarriage.addOrReplaceChild(
                 "left_track",
                 CubeListBuilder.create()
@@ -71,11 +67,19 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         // Drive sprocket front
                         .texOffs(76, 64).addBox(-5.5F, -6.0F, 22.0F, 11.0F, 12.0F, 8.0F)
                         // Idler wheel rear
-                        .texOffs(76, 64).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F),
+                        .texOffs(76, 64).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F)
+                        // Bottom road rollers
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, -18.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, -6.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, 6.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, 18.0F, 9.0F, 4.0F, 6.0F)
+                        // Top carrier return rollers
+                        .texOffs(76, 64).addBox(-4.5F, -8.0F, -10.0F, 9.0F, 3.0F, 5.0F)
+                        .texOffs(76, 64).addBox(-4.5F, -8.0F, 10.0F, 9.0F, 3.0F, 5.0F),
                 PartPose.offset(-17.0F, 17.0F, 0.0F)
         );
 
-        // Right track crawler
+        // Right track crawler (with guide rollers & sprockets)
         undercarriage.addOrReplaceChild(
                 "right_track",
                 CubeListBuilder.create()
@@ -84,7 +88,15 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         // Drive sprocket front
                         .texOffs(76, 64).addBox(-5.5F, -6.0F, 22.0F, 11.0F, 12.0F, 8.0F)
                         // Idler wheel rear
-                        .texOffs(76, 64).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F),
+                        .texOffs(76, 64).addBox(-5.5F, -6.0F, -30.0F, 11.0F, 12.0F, 8.0F)
+                        // Bottom road rollers
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, -18.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, -6.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, 6.0F, 9.0F, 4.0F, 6.0F)
+                        .texOffs(76, 64).addBox(-4.5F, 4.0F, 18.0F, 9.0F, 4.0F, 6.0F)
+                        // Top carrier return rollers
+                        .texOffs(76, 64).addBox(-4.5F, -8.0F, -10.0F, 9.0F, 3.0F, 5.0F)
+                        .texOffs(76, 64).addBox(-4.5F, -8.0F, 10.0F, 9.0F, 3.0F, 5.0F),
                 PartPose.offset(17.0F, 17.0F, 0.0F)
         );
 
@@ -94,7 +106,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 CubeListBuilder.create()
                         // Upper rotating deck plate
                         .texOffs(0, 0).addBox(-18.0F, -2.0F, -24.0F, 36.0F, 3.0F, 44.0F)
-                        // Heavy rear counterweight
+                        // Heavy rear counterweight with hazard stripes
                         .texOffs(0, 47).addBox(-18.0F, -14.0F, -26.0F, 36.0F, 14.0F, 10.0F)
                         // Engine compartment & hydraulic pump housing (right side)
                         .texOffs(80, 0).addBox(-2.0F, -14.0F, -16.0F, 20.0F, 12.0F, 32.0F)
@@ -105,8 +117,36 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         // Cab driver seat
                         .texOffs(0, 20).addBox(-14.0F, -8.0F, 2.0F, 8.0F, 6.0F, 8.0F)
                         // Seat backrest
-                        .texOffs(0, 20).addBox(-14.0F, -16.0F, 8.0F, 8.0F, 8.0F, 2.0F),
+                        .texOffs(0, 20).addBox(-14.0F, -16.0F, 8.0F, 8.0F, 8.0F, 2.0F)
+                        // Dual hydraulic control joysticks
+                        .texOffs(112, 68).addBox(-15.0F, -11.0F, 4.0F, 1.0F, 4.0F, 1.0F)
+                        .texOffs(112, 68).addBox(-5.0F, -11.0F, 4.0F, 1.0F, 4.0F, 1.0F)
+                        // Rearview mirror on cab front-left pillar
+                        .texOffs(112, 104).addBox(-19.0F, -16.0F, 12.0F, 2.0F, 1.0F, 3.0F)
+                        .texOffs(112, 104).addBox(-20.0F, -18.0F, 14.0F, 1.0F, 5.0F, 3.0F)
+                        // Engine exhaust stack with rain cap
+                        .texOffs(112, 92).addBox(12.0F, -24.0F, -18.0F, 3.0F, 10.0F, 3.0F)
+                        .texOffs(112, 92).addBox(11.5F, -25.5F, -18.5F, 4.0F, 2.0F, 4.0F),
                 PartPose.offset(0.0F, 9.0F, 0.0F)
+        );
+
+        // ── Flashing Yellow Warning Beacon ("Żółty Kogut") on Cab Roof ─
+        PartDefinition beaconBase = upperBody.addOrReplaceChild(
+                "beacon_base",
+                CubeListBuilder.create()
+                        // Black mount base
+                        .texOffs(112, 68).addBox(-2.5F, -2.0F, -2.5F, 5.0F, 2.0F, 5.0F)
+                        // Amber dome lens
+                        .texOffs(112, 74).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 4.0F, 4.0F),
+                PartPose.offset(-10.0F, -23.0F, 12.0F)
+        );
+
+        // Rotating reflector/bulb inside beacon dome
+        beaconBase.addOrReplaceChild(
+                "beacon_reflector",
+                CubeListBuilder.create()
+                        .texOffs(112, 86).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
         // ── 3. Boom (Gooseneck Boom, pivots at cab front-right) ─────────
@@ -117,8 +157,9 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         .texOffs(0, 80).addBox(-3.5F, -4.0F, 0.0F, 7.0F, 8.0F, 32.0F)
                         // Upper curved boom section
                         .texOffs(46, 80).addBox(-3.0F, -3.5F, 30.0F, 6.0F, 7.0F, 26.0F)
-                        // Hydraulic boom lift cylinder (mounted underneath)
-                        .texOffs(76, 110).addBox(-2.0F, 4.0F, 8.0F, 4.0F, 4.0F, 24.0F),
+                        // Dual hydraulic boom lift cylinders (underneath)
+                        .texOffs(76, 110).addBox(-4.5F, 3.0F, 8.0F, 3.0F, 3.0F, 22.0F)
+                        .texOffs(76, 110).addBox(1.5F, 3.0F, 8.0F, 3.0F, 3.0F, 22.0F),
                 PartPose.offset(5.5F, -6.0F, 5.0F)
         );
 
@@ -178,11 +219,19 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         // Turntable yaw rotation (relative to undercarriage)
         this.upperBody.yRot = (float) Math.toRadians(-state.upperYaw);
 
-        // Hierarchical arm joint angles:
-        // In model coordinates with inverted scale(-1, -1, 1), positive xRot pitches the arm UP in world space.
+        // Hierarchical arm joint angles
         this.boom.xRot = (float) Math.toRadians(state.boomAngle);
         this.stick.xRot = (float) Math.toRadians(state.stickAngle);
         this.bucket.xRot = (float) Math.toRadians(state.bucketAngle);
+
+        // Rotating warning beacon reflector when machine is operating
+        if (state.isOperating) {
+            this.beaconReflector.yRot = state.beaconSpin;
+            this.beaconReflector.visible = true;
+        } else {
+            this.beaconReflector.yRot = 0.0F;
+            this.beaconReflector.visible = false;
+        }
 
         // Visual fill level inside bucket cavity
         this.bucketContents.visible = state.fillRatio > 0.02F;

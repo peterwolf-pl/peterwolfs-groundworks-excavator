@@ -10,6 +10,7 @@ import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
 import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -137,6 +138,18 @@ public class GroundworksExcavatorEntity extends Entity {
                     GranularMaterialRegistry.byId(this.entityData.get(MATERIAL_ID)),
                     this.entityData.get(STORED_UNITS)
             );
+
+            // Flashing warning beacon ambient light effect on cab roof
+            if (this.isOperating() && (this.tickCount % 8 == 0)) {
+                Vec3 beaconPos = ArmKinematics.getBeaconWorldPosition(
+                        this.position(), this.getYRot(), this.getUpperYaw()
+                );
+                this.level().addParticle(
+                        ParticleTypes.SMALL_FLAME,
+                        beaconPos.x, beaconPos.y, beaconPos.z,
+                        0.0D, 0.01D, 0.0D
+                );
+            }
             return;
         }
 
@@ -372,6 +385,14 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     // ── Getters for Renderers & Controllers ───────────────────────────
+
+    public boolean isOperating() {
+        return this.getFirstPassenger() != null
+                || Math.abs(this.getTrackLeftSpeed()) > 0.001F
+                || Math.abs(this.getTrackRightSpeed()) > 0.001F
+                || this.isDigging()
+                || this.isDumping();
+    }
 
     public int getControlMode() {
         return this.entityData.get(CONTROL_MODE);

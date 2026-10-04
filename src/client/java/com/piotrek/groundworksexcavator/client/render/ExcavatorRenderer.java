@@ -55,6 +55,10 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
         state.isDigging = entity.isDigging();
         state.isDumping = entity.isDumping();
+
+        state.isOperating = entity.isOperating();
+        state.beaconSpin = (entity.tickCount + partialTick) * 0.75F;
+        state.beaconFlash = state.isOperating && ((entity.tickCount / 4) % 2 == 0);
     }
 
     @Override

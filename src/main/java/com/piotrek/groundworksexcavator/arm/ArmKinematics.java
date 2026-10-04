@@ -28,6 +28,7 @@ public final class ArmKinematics {
     public static final double TURNTABLE_HEIGHT = 0.75D;
     public static final Vec3 BOOM_MOUNT_OFFSET = new Vec3(0.35D, 0.45D, 0.30D);
     public static final Vec3 CAB_SEAT_OFFSET = new Vec3(-0.75D, 0.85D, 0.35D);
+    public static final Vec3 BEACON_ROOF_OFFSET = new Vec3(-0.625D, 1.85D, 0.75D);
 
     public static final double BOOM_LENGTH = 3.6D;
     public static final double STICK_LENGTH = 2.4D;
@@ -182,5 +183,22 @@ public final class ArmKinematics {
                 .add(upperRight.scale(CAB_SEAT_OFFSET.x))
                 .add(upperUp.scale(CAB_SEAT_OFFSET.y))
                 .add(upperHeading.scale(CAB_SEAT_OFFSET.z));
+    }
+
+    /**
+     * Compute world position of the warning beacon on top of the cab roof.
+     */
+    public static Vec3 getBeaconWorldPosition(Vec3 basePos, float baseYaw, float upperYaw) {
+        float totalYaw = baseYaw + upperYaw;
+        double yawRad = Math.toRadians(totalYaw);
+        Vec3 upperHeading = new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
+        Vec3 upperRight = new Vec3(Math.cos(yawRad), 0.0D, Math.sin(yawRad));
+        Vec3 upperUp = new Vec3(0.0D, 1.0D, 0.0D);
+
+        Vec3 turntableCenter = basePos.add(0.0D, TURNTABLE_HEIGHT, 0.0D);
+        return turntableCenter
+                .add(upperRight.scale(BEACON_ROOF_OFFSET.x))
+                .add(upperUp.scale(BEACON_ROOF_OFFSET.y))
+                .add(upperHeading.scale(BEACON_ROOF_OFFSET.z));
     }
 }
