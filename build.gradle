@@ -78,3 +78,25 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_25
 	targetCompatibility = JavaVersion.VERSION_25
 }
+
+tasks.register('deployToCurseForge', Copy) {
+	dependsOn 'jar'
+	def cfMods = file("${System.getProperty('user.home')}/Documents/curseforge/minecraft/Instances/26.3 ground_works/mods")
+	from tasks.named('jar').flatMap { it.archiveFile }
+	into cfMods
+	doFirst {
+		if (!cfMods.exists()) cfMods.mkdirs()
+		cfMods.listFiles()?.each { f ->
+			if (f.name.startsWith("pw_groundworks_excavator-") && f.name.endsWith(".jar")) {
+				f.delete()
+			}
+		}
+	}
+	doLast {
+		println "✓ Auto-deployed to ${cfMods.absolutePath}"
+	}
+}
+
+tasks.named('build').configure {
+	finalizedBy('deployToCurseForge')
+}

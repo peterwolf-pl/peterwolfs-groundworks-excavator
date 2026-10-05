@@ -12,5 +12,6 @@
   "key.pw_groundworks_excavator.cab_right": "Rotate Cab Right (D)",
   "key.pw_groundworks_excavator.stick_out": "Extend Stick (W / R)",
   "key.pw_groundworks_excavator.stick_in": "Retract Stick (S / F)",
+  "key.pw_groundworks_excavator.debug_hud": "Toggle Debug Angle HUD (Double-tap H)",
   "subtitles.pw_groundworks_excavator.engine_loop": "Excavator engine rumbles"
 }

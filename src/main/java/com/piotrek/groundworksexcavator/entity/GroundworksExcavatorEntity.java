@@ -170,6 +170,51 @@ public class GroundworksExcavatorEntity extends Entity {
                         0.0D, 0.02D, 0.0D
                 );
             }
+
+            // Diesel engine exhaust smoke emission:
+            // The exhaust pipe is located on the rear deck of the upper body and rotates with the turntable!
+            // Load tiers:
+            // > 30%: mała ilość jasno szarego dymu (WHITE_SMOKE co kilka ticków)
+            // > 60%: średnia ilość ciemno szarego dymu (SMOKE co 2 ticki)
+            // == 100% (przeciążenie): czarny dym z wydechu (LARGE_SMOKE / SMOKE każdy tick)
+            float clientLoad = this.getMachineLoad();
+            if (this.isOperating() && clientLoad > 0.30F) {
+                Vec3 exhaustPos = ArmKinematics.getExhaustWorldPosition(
+                        this.position(), this.getYRot(), this.getUpperYaw()
+                );
+
+                if (clientLoad >= 0.95F) {
+                    // 100% obciążenia / opór: gęsty czarny dym z wydechu
+                    this.level().addParticle(
+                            ParticleTypes.LARGE_SMOKE,
+                            exhaustPos.x, exhaustPos.y + 0.05D, exhaustPos.z,
+                            (Math.random() - 0.5D) * 0.03D, 0.08D + Math.random() * 0.04D, (Math.random() - 0.5D) * 0.03D
+                    );
+                    this.level().addParticle(
+                            ParticleTypes.SMOKE,
+                            exhaustPos.x, exhaustPos.y + 0.05D, exhaustPos.z,
+                            (Math.random() - 0.5D) * 0.02D, 0.06D, (Math.random() - 0.5D) * 0.02D
+                    );
+                } else if (clientLoad > 0.60F) {
+                    // > 60% obciążenia: średnia ilość ciemno szarego dymu
+                    if (this.tickCount % 2 == 0) {
+                        this.level().addParticle(
+                                ParticleTypes.SMOKE,
+                                exhaustPos.x, exhaustPos.y + 0.05D, exhaustPos.z,
+                                (Math.random() - 0.5D) * 0.02D, 0.05D + Math.random() * 0.02D, (Math.random() - 0.5D) * 0.02D
+                        );
+                    }
+                } else {
+                    // > 30% obciążenia: mała ilość jasno szarego dymu
+                    if (this.tickCount % 4 == 0) {
+                        this.level().addParticle(
+                                ParticleTypes.WHITE_SMOKE,
+                                exhaustPos.x, exhaustPos.y + 0.05D, exhaustPos.z,
+                                (Math.random() - 0.5D) * 0.01D, 0.04D, (Math.random() - 0.5D) * 0.01D
+                        );
+                    }
+                }
+            }
             return;
         }
 
@@ -186,7 +231,8 @@ public class GroundworksExcavatorEntity extends Entity {
                             driver != null,
                             this.getUpperYaw(), this.getBoomAngle(),
                             this.getStickAngle(), this.getBucketAngle(),
-                            this.getStoredUnits(), this.position(), this.getYRot(),
+                            this.getStoredUnits(), this.getBucketCapacity(),
+                            this.position(), this.getYRot(),
                             this.cabinBlockedLastTick, trenchDepth));
             this.setControlInputs(
                     controls.throttle(), controls.steer(), controls.cabYaw(),
@@ -292,7 +338,8 @@ public class GroundworksExcavatorEntity extends Entity {
                     -Math.sin(yawRadians) * allowedThrottle,
                     0.0D,
                     Math.cos(yawRadians) * allowedThrottle);
-            if (ArmTerrainContactController.isBlockedLateralDrag(
+            // Wyjazd w tył (throttle < 0) jest ZAWSZE dozwolony - odblokowuje wycofanie koparki z urobku!
+            if (allowedThrottle > 0.0F && ArmTerrainContactController.isBlockedLateralDrag(
                     true, requestedTravel, preMovePose.forwardCutting())) {
                 allowedThrottle = 0.0F;
                 this.trackController.stopMotion();
@@ -416,11 +463,29 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     public void startAutoTrench() {
+        startAutoTrench(
+                AutoTrenchController.DEFAULT_MAX_TRENCH_DEPTH,
+                AutoTrenchController.DEFAULT_CUTS_PER_STATION,
+                AutoTrenchController.DEFAULT_LEFT_EXPANSION_BLOCKS,
+                AutoTrenchController.DEFAULT_LEFT_EXPANSION_CYCLES
+        );
+    }
+
+    public void startAutoTrench(float depthBlocks, int cutsBeforeReverse) {
+        startAutoTrench(
+                depthBlocks,
+                cutsBeforeReverse,
+                AutoTrenchController.DEFAULT_LEFT_EXPANSION_BLOCKS,
+                AutoTrenchController.DEFAULT_LEFT_EXPANSION_CYCLES
+        );
+    }
+
+    public void startAutoTrench(float depthBlocks, int cutsCenter, float expandLeftBlocks, int cutsLeft) {
         if (this.level().isClientSide()) return;
         this.setBucketType(BUCKET_LARGE);
         this.setControlMode(MODE_EXCAVATOR);
         this.cabinBlockedLastTick = false;
-        this.autoTrenchController.start();
+        this.autoTrenchController.start(depthBlocks, cutsCenter, expandLeftBlocks, cutsLeft);
     }
 
     public void stopAutoTrench() {
@@ -441,10 +506,36 @@ public class GroundworksExcavatorEntity extends Entity {
         return this.autoTrenchController.completedSections();
     }
 
+    public int getAutoTrenchCutsAtStation() {
+        return this.autoTrenchController.cutsAtCurrentStation();
+    }
+
+    public int getAutoTrenchMaxCutsPerStation() {
+        return this.autoTrenchController.maxCutsPerStation();
+    }
+
+    public float getAutoTrenchMaxDepth() {
+        return this.autoTrenchController.maxDiggingDepth();
+    }
+
+    public float getAutoTrenchLeftExpansionBlocks() {
+        return this.autoTrenchController.leftExpansionBlocks();
+    }
+
+    public int getAutoTrenchLeftExpansionCycles() {
+        return this.autoTrenchController.leftExpansionCycles();
+    }
+
+    public boolean isAutoTrenchInLeftPass() {
+        return this.autoTrenchController.isInLeftExpansionPass();
+    }
+
     private float queryTrenchDepth(ServerLevel level) {
-        float yawRad = (float) Math.toRadians(this.getYRot());
+        float workYawDeg = this.autoTrenchController.currentWorkCabinYaw();
+        float yawRad = (float) Math.toRadians(this.getYRot() - workYawDeg);
         Vec3 fwd = new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
-        Vec3 probePoint = this.position().add(fwd.scale(3.8D));
+        // Sonda sprawdza punkt roboczy przed krawędzią tnącą (zasięg ~4.5m)
+        Vec3 probePoint = this.position().add(fwd.scale(4.5D));
         int probeX = BlockPos.containing(probePoint).getX();
         int probeZ = BlockPos.containing(probePoint).getZ();
         int baseY = (int) Math.floor(this.getY());
@@ -461,7 +552,7 @@ public class GroundworksExcavatorEntity extends Entity {
                 return (float) Math.max(0.0D, this.getY() - surfaceY);
             }
         }
-        return 1.0F;
+        return 0.0F;
     }
 
     // ── Driver & Passenger Interaction ────────────────────────────────

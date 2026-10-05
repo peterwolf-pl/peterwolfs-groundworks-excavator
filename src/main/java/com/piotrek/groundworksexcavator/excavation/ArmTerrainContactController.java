@@ -72,9 +72,19 @@ public final class ArmTerrainContactController {
                 currentBase, currentYaw, currentPitch, currentRoll, bucketType, angles);
         BucketPose candidatePose = pose(
                 candidateBase, candidateYaw, candidatePitch, candidateRoll, bucketType, angles);
+
+        Vec3 movement = candidatePose.cuttingEdge().subtract(currentPose.cuttingEdge());
+
+        // Reverse / extraction motion (wyjazd gąsienicami w tył) jest ZAWSZE dozwolony!
+        // Pozwala to operatorowi na bezproblemowe wycofanie koparki z wykopu.
+        boolean movingBackward = movement.dot(currentPose.forwardCutting()) < -0.001D;
+        if (movingBackward) {
+            return true;
+        }
+
         if (isBlockedLateralDrag(
                 areTeethEmbedded(level, currentPose),
-                candidatePose.cuttingEdge().subtract(currentPose.cuttingEdge()),
+                movement,
                 currentPose.forwardCutting())) {
             return false;
         }
@@ -95,7 +105,8 @@ public final class ArmTerrainContactController {
 
     static boolean allowsPenetrationChange(int currentSamples, int candidateSamples) {
         if (candidateSamples == 0) return true;
-        return currentSamples > 0 && candidateSamples < currentSamples;
+        // Dozwolone utrzymanie lub zmniejszenie penetracji podczas wyrywania/ruchu w gruncie
+        return candidateSamples <= currentSamples;
     }
 
     public static boolean isBlockedLateralDrag(
@@ -127,6 +138,17 @@ public final class ArmTerrainContactController {
             JointAngles current,
             JointAngles candidate
     ) {
+        // 1. Obrót samej łyżki nigdy nie przesuwa wysięgnika ani przedramienia - zawsze dozwolony
+        if (current.cabin() == candidate.cabin() && current.boom() == candidate.boom() && current.stick() == candidate.stick()) {
+            return candidate;
+        }
+
+        // 2. Podnoszenie wysięgnika w górę (Arrow Up) jest ZAWSZE dozwolone!
+        // Operator musi mieć pełną moc hydrauliczną, by unieść ramię w górę i wyciągnąć łyżkę z gruntu.
+        if (candidate.boom() > current.boom() && current.cabin() == candidate.cabin()) {
+            return candidate;
+        }
+
         BucketPose currentPose = pose(
                 basePos, baseYaw, basePitch, baseRoll, bucketType, current);
         BucketPose candidatePose = pose(

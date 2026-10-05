@@ -24,8 +24,12 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
     private final ModelPart bucket;
     private final ModelPart bucketStandard;
     private final ModelPart bucketLarge;
-    private final ModelPart bucketContentsStandard;
-    private final ModelPart bucketContentsLarge;
+    private final ModelPart bucketContentsStdDirt;
+    private final ModelPart bucketContentsStdSand;
+    private final ModelPart bucketContentsStdGravel;
+    private final ModelPart bucketContentsLargeDirt;
+    private final ModelPart bucketContentsLargeSand;
+    private final ModelPart bucketContentsLargeGravel;
     private final ModelPart beaconReflectorOn;
     private final ModelPart beaconReflectorOff;
 
@@ -38,8 +42,12 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucket = this.stick.getChild("bucket");
         this.bucketStandard = this.bucket.getChild("bucket_standard");
         this.bucketLarge = this.bucket.getChild("bucket_large");
-        this.bucketContentsStandard = this.bucketStandard.getChild("bucket_contents_std");
-        this.bucketContentsLarge = this.bucketLarge.getChild("bucket_contents_large");
+        this.bucketContentsStdDirt = this.bucketStandard.getChild("bucket_contents_std_dirt");
+        this.bucketContentsStdSand = this.bucketStandard.getChild("bucket_contents_std_sand");
+        this.bucketContentsStdGravel = this.bucketStandard.getChild("bucket_contents_std_gravel");
+        this.bucketContentsLargeDirt = this.bucketLarge.getChild("bucket_contents_large_dirt");
+        this.bucketContentsLargeSand = this.bucketLarge.getChild("bucket_contents_large_sand");
+        this.bucketContentsLargeGravel = this.bucketLarge.getChild("bucket_contents_large_gravel");
         ModelPart beaconBase = this.upperBody.getChild("beacon_base");
         this.beaconReflectorOn = beaconBase.getChild("beacon_reflector_on");
         this.beaconReflectorOff = beaconBase.getChild("beacon_reflector_off");
@@ -269,11 +277,23 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Soil inside standard bucket: 56x19 UV [388..444, 122..141]
+        // Dynamic material layers inside standard bucket (Dirt: UV 234, Sand: UV 304, Gravel: UV 374)
         bucketStd.addOrReplaceChild(
-                "bucket_contents_std",
+                "bucket_contents_std_dirt",
                 CubeListBuilder.create()
-                        .texOffs(388, 122).addBox(-4.0F, 2.0F, -9.0F, 8.0F, 6.0F, 11.0F),
+                        .texOffs(0, 234).addBox(-4.0F, 2.0F, -9.0F, 8.0F, 6.0F, 11.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
+        );
+        bucketStd.addOrReplaceChild(
+                "bucket_contents_std_sand",
+                CubeListBuilder.create()
+                        .texOffs(0, 304).addBox(-4.0F, 2.0F, -9.0F, 8.0F, 6.0F, 11.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
+        );
+        bucketStd.addOrReplaceChild(
+                "bucket_contents_std_gravel",
+                CubeListBuilder.create()
+                        .texOffs(0, 374).addBox(-4.0F, 2.0F, -9.0F, 8.0F, 6.0F, 11.0F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
@@ -300,11 +320,23 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Soil inside large bucket: 56x19 UV [388..444, 122..141]
+        // Dynamic material layers inside large bucket (Dirt: UV 234, Sand: UV 304, Gravel: UV 374)
         bucketLarge.addOrReplaceChild(
-                "bucket_contents_large",
+                "bucket_contents_large_dirt",
                 CubeListBuilder.create()
-                        .texOffs(388, 122).addBox(-8.0F, 1.0F, -10.0F, 16.0F, 7.0F, 12.0F),
+                        .texOffs(0, 234).addBox(-8.0F, 1.0F, -10.0F, 16.0F, 7.0F, 12.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
+        );
+        bucketLarge.addOrReplaceChild(
+                "bucket_contents_large_sand",
+                CubeListBuilder.create()
+                        .texOffs(0, 304).addBox(-8.0F, 1.0F, -10.0F, 16.0F, 7.0F, 12.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
+        );
+        bucketLarge.addOrReplaceChild(
+                "bucket_contents_large_gravel",
+                CubeListBuilder.create()
+                        .texOffs(0, 374).addBox(-8.0F, 1.0F, -10.0F, 16.0F, 7.0F, 12.0F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
@@ -328,12 +360,37 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucketStandard.visible = !isLarge;
         this.bucketLarge.visible = isLarge;
 
-        // Visual fill level inside active bucket cavity
-        this.bucketContentsStandard.visible = !isLarge && state.fillRatio > 0.02F;
-        this.bucketContentsStandard.yScale = Math.max(0.15F, state.fillRatio);
+        // Visual fill level and material texture matching the exact scooped granular material
+        this.bucketContentsStdDirt.visible = false;
+        this.bucketContentsStdSand.visible = false;
+        this.bucketContentsStdGravel.visible = false;
+        this.bucketContentsLargeDirt.visible = false;
+        this.bucketContentsLargeSand.visible = false;
+        this.bucketContentsLargeGravel.visible = false;
 
-        this.bucketContentsLarge.visible = isLarge && state.fillRatio > 0.02F;
-        this.bucketContentsLarge.yScale = Math.max(0.15F, state.fillRatio);
+        if (state.fillRatio > 0.02F && state.storedUnits > 0) {
+            float yScale = Math.max(0.15F, state.fillRatio);
+            ModelPart activeContents;
+            if (isLarge) {
+                if (state.materialId == 2) {
+                    activeContents = this.bucketContentsLargeSand;
+                } else if (state.materialId == 3) {
+                    activeContents = this.bucketContentsLargeGravel;
+                } else {
+                    activeContents = this.bucketContentsLargeDirt;
+                }
+            } else {
+                if (state.materialId == 2) {
+                    activeContents = this.bucketContentsStdSand;
+                } else if (state.materialId == 3) {
+                    activeContents = this.bucketContentsStdGravel;
+                } else {
+                    activeContents = this.bucketContentsStdDirt;
+                }
+            }
+            activeContents.visible = true;
+            activeContents.yScale = yScale;
+        }
 
         // Flashing yellow warning beacon: rotates and blinks bright yellow light during operation
         if (state.isOperating) {

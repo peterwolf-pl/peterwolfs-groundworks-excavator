@@ -12,13 +12,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ArmTerrainContactControllerTest {
 
     @Test
-    @DisplayName("Arm motion cannot create or preserve penetration into granular terrain")
-    void penetrationMustDecreaseWhenArmTouchesMaterial() {
+    @DisplayName("Arm motion cannot create new penetration but allows preserving or decreasing during extraction")
+    void penetrationMustNotIncreaseWhenArmTouchesMaterial() {
         assertTrue(ArmTerrainContactController.allowsPenetrationChange(0, 0));
         assertFalse(ArmTerrainContactController.allowsPenetrationChange(0, 1));
-        assertFalse(ArmTerrainContactController.allowsPenetrationChange(3, 3));
+        assertTrue(ArmTerrainContactController.allowsPenetrationChange(3, 3));
         assertTrue(ArmTerrainContactController.allowsPenetrationChange(3, 2));
         assertTrue(ArmTerrainContactController.allowsPenetrationChange(1, 0));
+        assertFalse(ArmTerrainContactController.allowsPenetrationChange(2, 3));
     }
 
     @Test
