@@ -129,6 +129,7 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             server.runOnServer(minecraftServer -> {
                 ServerLevel level = minecraftServer.overworld();
                 verifyArmContactGate(level);
+                verifyMaterialAwareExcavationBoundary(level);
 
                 BlockPos source = new BlockPos(11, BASE_Y, 2);
                 BlockPos destination = source.south();
@@ -271,6 +272,40 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
     private static int unitsAt(ServerLevel level, BlockPos pos) {
         GranularCell cell = GroundworksApi.queryCell(level, pos);
         return cell == null ? 0 : cell.unitCount();
+    }
+
+    private static void verifyMaterialAwareExcavationBoundary(ServerLevel level) {
+        BlockPos dirtPos = new BlockPos(30, BASE_Y, 2);
+        BlockPos sandPos = new BlockPos(31, BASE_Y, 2);
+        level.setBlockAndUpdate(dirtPos, Blocks.DIRT.defaultBlockState());
+        level.setBlockAndUpdate(sandPos, Blocks.SAND.defaultBlockState());
+
+        var result = GroundworksExcavationAdapter.excavateAt(
+                level,
+                new Vec3(31.0D, BASE_Y + 0.5D, 2.5D),
+                128,
+                GranularMaterialRegistry.DIRT
+        );
+
+        if (!result.success()
+                || result.material().id() != GranularMaterialRegistry.DIRT.id()) {
+            throw new AssertionError("Excavator adapter did not excavate requested dirt");
+        }
+        if (effectiveUnitsAt(level, dirtPos) >= GranularCell.TOTAL_UNITS) {
+            throw new AssertionError("Excavator adapter did not remove boundary dirt");
+        }
+        if (effectiveUnitsAt(level, sandPos) != GranularCell.TOTAL_UNITS) {
+            throw new AssertionError("Excavator adapter modified adjacent sand");
+        }
+    }
+
+    private static int effectiveUnitsAt(ServerLevel level, BlockPos pos) {
+        GranularCell cell = GroundworksApi.queryCell(level, pos);
+        if (cell != null) {
+            return cell.unitCount();
+        }
+        var material = GroundworksApi.getMaterial(level, pos);
+        return material == null || material.id() == 0 ? 0 : GranularCell.TOTAL_UNITS;
     }
 
     private static void verifyArmContactGate(ServerLevel level) {
