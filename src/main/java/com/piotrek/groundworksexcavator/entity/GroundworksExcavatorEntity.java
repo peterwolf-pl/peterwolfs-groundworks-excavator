@@ -2,6 +2,7 @@ package com.piotrek.groundworksexcavator.entity;
 
 import com.piotrek.groundworks.api.material.GranularMaterial;
 import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
+import com.piotrek.groundworks.terrain.cell.GranularCell;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
@@ -9,8 +10,10 @@ import com.piotrek.groundworksexcavator.automation.AutoTrenchController;
 import com.piotrek.groundworksexcavator.excavation.ArmTerrainContactController;
 import com.piotrek.groundworksexcavator.excavation.BucketDumpingController;
 import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
+import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
 import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -112,6 +115,7 @@ public class GroundworksExcavatorEntity extends Entity {
     // Last recorded excavation / deposit amounts (for debug command & telemetry)
     private int lastExcavatedUnits;
     private int lastDepositedUnits;
+    private boolean cabinBlockedLastTick;
 
     public GroundworksExcavatorEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -176,12 +180,14 @@ public class GroundworksExcavatorEntity extends Entity {
         // input path as a player, so normal hydraulics, contact checks, excavation, dumping,
         // movement, and material conservation remain authoritative.
         if (this.autoTrenchController.isActive()) {
+            float trenchDepth = this.queryTrenchDepth(serverLevel);
             AutoTrenchController.Controls controls = this.autoTrenchController.tick(
                     new AutoTrenchController.Snapshot(
                             driver != null,
                             this.getUpperYaw(), this.getBoomAngle(),
                             this.getStickAngle(), this.getBucketAngle(),
-                            this.getStoredUnits(), this.position(), this.getYRot()));
+                            this.getStoredUnits(), this.position(), this.getYRot(),
+                            this.cabinBlockedLastTick, trenchDepth));
             this.setControlInputs(
                     controls.throttle(), controls.steer(), controls.cabYaw(),
                     controls.boom(), controls.stick(), controls.bucket());
@@ -244,6 +250,7 @@ public class GroundworksExcavatorEntity extends Entity {
 
         // 2b. Evaluate Machine Resistance & Hydraulic Overload
         boolean cabinBlocked = (newCabYaw != constrained.cabin()) && Math.abs(this.inputCabYaw) > 0.01F;
+        this.cabinBlockedLastTick = cabinBlocked;
         boolean boomBlocked = (newBoom != constrained.boom()) && Math.abs(this.inputBoom) > 0.01F;
         boolean stickBlocked = (newStick != constrained.stick()) && Math.abs(this.inputStick) > 0.01F;
         boolean bucketBlocked = (newBucket != constrained.bucket()) && Math.abs(this.inputBucket) > 0.01F;
@@ -317,50 +324,9 @@ public class GroundworksExcavatorEntity extends Entity {
                     this.getVehiclePitch(), this.getVehicleRoll());
         }
 
-        // 3b. Evaluate Bucket Ground Push-Up Physics (podnoszenie koparki na łyżce)
-        // If the boom/stick/bucket pushes firmly down against solid ground, the hydraulic force
-        // jacks the undercarriage upward off the ground and tilts the chassis pitch!
-        BucketPose currentArmPose = ArmKinematics.computeBucketPose(
-                this.position(),
-                this.getYRot(),
-                trackState.pitch(),
-                trackState.roll(),
-                constrained.cabin(),
-                constrained.boom(),
-                constrained.stick(),
-                constrained.bucket(),
-                this.getBucketType()
-        );
-
-        Vec3 teethPoint = currentArmPose.cuttingEdge();
-        double groundUnderTeeth = TrackMovementController.sampleSurfaceHeight(serverLevel, teethPoint);
-        double penetrationDepth = groundUnderTeeth - teethPoint.y;
-
-        float dynamicPitch = trackState.pitch();
-        double liftDeltaY = 0.0D;
-
-        if (penetrationDepth > 0.05D && currentArmPose.dumpTiltDegrees() > -60.0F) {
-            // Bucket is firmly planted and pressing into solid ground
-            // Push-up strength scales with penetration depth and downward arm effort
-            double maxLift = 1.60D; // Maximum machine ground clearance (up to 1.6 blocks jacked up!)
-            double targetLift = Math.min(maxLift, penetrationDepth * 1.25D);
-            liftDeltaY = targetLift * 0.35D;
-
-            // Pitch tilt depends on cab yaw angle:
-            // When arm is facing front (upperYaw ~ 0): jacks the front up (pitch tilts positive)
-            // When arm is facing rear (upperYaw ~ 180): jacks the rear up (pitch tilts negative)
-            double cabYawRad = Math.toRadians(constrained.cabin());
-            float pitchTiltImpact = (float) (Math.cos(cabYawRad) * (targetLift * 18.0D));
-            dynamicPitch = Mth.clamp(trackState.pitch() + pitchTiltImpact, -35.0F, 40.0F);
-
-            // While jacked up on the bucket, driving tracks provides crawler traction or wheel spin
-            this.syncPosition = true;
-            this.needsSync = true;
-        }
-
         this.entityData.set(TRACK_LEFT_SPEED, trackState.leftSpeed());
         this.entityData.set(TRACK_RIGHT_SPEED, trackState.rightSpeed());
-        this.entityData.set(VEHICLE_PITCH, dynamicPitch);
+        this.entityData.set(VEHICLE_PITCH, trackState.pitch());
         this.entityData.set(VEHICLE_ROLL, trackState.roll());
 
         // Apply yaw rotation
@@ -368,11 +334,9 @@ public class GroundworksExcavatorEntity extends Entity {
         this.setYHeadRot(this.getYRot());
         this.setYBodyRot(this.getYRot());
 
-        // Apply translation movement with gravity and hydraulic bucket lift
+        // Apply translation movement with gravity
         Vec3 movement = trackState.forwardDelta();
-        if (liftDeltaY > 0.001D) {
-            movement = movement.add(0.0D, liftDeltaY, 0.0D);
-        } else if (!this.onGround()) {
+        if (!this.onGround()) {
             movement = movement.add(0.0D, -0.08D, 0.0D);
         } else {
             movement = movement.add(0.0D, -0.02D, 0.0D); // Keep tracks grounded
@@ -455,10 +419,12 @@ public class GroundworksExcavatorEntity extends Entity {
         if (this.level().isClientSide()) return;
         this.setBucketType(BUCKET_LARGE);
         this.setControlMode(MODE_EXCAVATOR);
+        this.cabinBlockedLastTick = false;
         this.autoTrenchController.start();
     }
 
     public void stopAutoTrench() {
+        this.cabinBlockedLastTick = false;
         this.autoTrenchController.stop();
         this.setControlInputs(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
     }
@@ -473,6 +439,29 @@ public class GroundworksExcavatorEntity extends Entity {
 
     public int getAutoTrenchCompletedSections() {
         return this.autoTrenchController.completedSections();
+    }
+
+    private float queryTrenchDepth(ServerLevel level) {
+        float yawRad = (float) Math.toRadians(this.getYRot());
+        Vec3 fwd = new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
+        Vec3 probePoint = this.position().add(fwd.scale(3.8D));
+        int probeX = BlockPos.containing(probePoint).getX();
+        int probeZ = BlockPos.containing(probePoint).getZ();
+        int baseY = (int) Math.floor(this.getY());
+
+        for (int y = baseY + 1; y >= baseY - 3; y--) {
+            BlockPos pos = new BlockPos(probeX, y, probeZ);
+            GranularCell cell = GroundworksExcavationAdapter.queryCell(level, pos);
+            if (cell != null && !cell.isEmpty()) {
+                double surfaceY = pos.getY() + (cell.unitCount() / 512.0D);
+                return (float) Math.max(0.0D, this.getY() - surfaceY);
+            }
+            if (GroundworksExcavationAdapter.isDiggable(level, pos) || level.getBlockState(pos).isSolid()) {
+                double surfaceY = pos.getY() + 1.0D;
+                return (float) Math.max(0.0D, this.getY() - surfaceY);
+            }
+        }
+        return 1.0F;
     }
 
     // ── Driver & Passenger Interaction ────────────────────────────────
