@@ -43,10 +43,24 @@ public final class GroundworksExcavationAdapter {
             Vec3 hitLocation,
             int maxUnits
     ) {
+        return excavateAt(level, hitLocation, maxUnits, GranularMaterial.EMPTY);
+    }
+
+    public static ExcavationResult excavateAt(
+            ServerLevel level,
+            Vec3 hitLocation,
+            int maxUnits,
+            GranularMaterial requiredMaterial
+    ) {
         if (maxUnits <= 0) {
             return ExcavationResult.NONE;
         }
-        return GroundworksApi.excavateAt(level, hitLocation, maxUnits);
+        return GroundworksApi.excavateAt(
+                level,
+                hitLocation,
+                maxUnits,
+                requiredMaterial
+        );
     }
 
     public static ExcavationResult excavate(ServerLevel level, BlockPos pos, int maxUnits) {
@@ -96,7 +110,17 @@ public final class GroundworksExcavationAdapter {
             return SurfaceDisplacement.NONE;
         }
 
-        ExcavationResult removed = excavateAt(level, hitLocation, maxUnits);
+        GranularMaterial sourceMaterial = getMaterial(level, source);
+        if (sourceMaterial == GranularMaterial.EMPTY) {
+            return SurfaceDisplacement.NONE;
+        }
+
+        ExcavationResult removed = excavateAt(
+                level,
+                hitLocation,
+                maxUnits,
+                sourceMaterial
+        );
         if (!removed.success()) {
             return SurfaceDisplacement.NONE;
         }
