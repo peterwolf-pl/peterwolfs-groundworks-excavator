@@ -5,11 +5,13 @@ import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
 import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Disabled("Temporarily disabled: podnoszenie koparki na lyzce disabled per user request")
 public class BucketPushUpPhysicsTest {
 
     @Test

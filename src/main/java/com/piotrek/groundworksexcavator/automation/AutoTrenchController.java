@@ -4,35 +4,52 @@ import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Deterministic server-side motion plan used by the trench test command.
+ * Deterministic server-side motion plan used by the trench automation.
  *
- * <p>One cycle positions the bucket, performs a one-block inward/downward cut,
- * lifts and swings the load to the machine's right, empties it, then reverses
- * exactly one block before starting the next section.</p>
+ * <p>One cycle positions the bucket, performs an inward digging stroke
+ * (forearm crowd + bucket curl) with depth automatically adapted to trench depth,
+ * lifts and swings the load to the machine's right, dumps with straightened forearm
+ * and fully opened bucket, then reverses one block after completing station cuts.</p>
  */
 public final class AutoTrenchController {
 
-    public static final float APPROACH_BOOM = 20.0F;
-    public static final float APPROACH_STICK = -85.0F;
-    public static final float APPROACH_BUCKET = 10.0F;
-
-    public static final float PENETRATE_BOOM = 9.0F;
-    public static final float PENETRATE_STICK = -78.0F;
-    public static final float PENETRATE_BUCKET = 10.0F;
-
-    public static final float CUT_BOOM = PENETRATE_BOOM;
-    public static final float CUT_STICK = PENETRATE_STICK;
-    public static final float CUT_BUCKET = 35.0F;
-
-    public static final float SAFE_BOOM = 52.0F;
-    public static final float SAFE_STICK = -95.0F;
-    public static final float HELD_BUCKET = -50.0F;
-    public static final float DUMP_BUCKET = 60.0F;
+    public static final float WORK_CABIN_YAW = 0.0F;
     public static final float RIGHT_DUMP_YAW = 90.0F;
+
+    public static final float SAFE_BOOM = 46.0F;
+    public static final float SAFE_STICK = -80.0F;
+    public static final float HELD_BUCKET = -50.0F;
+
+    // Dumping: forearm extended out nicely and bucket opened all the way
+    public static final float DUMP_BOOM = 34.0F;
+    public static final float DUMP_STICK = -50.0F;
+    public static final float DUMP_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F
+
+    // Digging approach & geometry
+    public static final float APPROACH_BOOM = 18.0F;
+    public static final float APPROACH_STICK = -45.0F;
+    public static final float APPROACH_BUCKET = 15.0F;
+
+    // Cut depth adaptation: initial pass is shallow (~0.38m), full cut reaches ~0.95m
+    public static final float INITIAL_CUT_DEPTH = 0.38F;
+    public static final float INITIAL_PENETRATE_BOOM = 10.4F;
+    public static final float FULL_CUT_DEPTH = 0.95F;
+    public static final float FULL_PENETRATE_BOOM = 3.6F;
+
+    // Backwards-compatible constants
+    public static final float PENETRATE_BOOM = INITIAL_PENETRATE_BOOM;
+    public static final float PENETRATE_STICK = -48.0F;
+    public static final float PENETRATE_BUCKET = 15.0F;
+
+    // Digging stroke: stick pulls inward ("sciagac przedramie") and bucket curls
+    public static final float CUT_STICK = -75.0F;
+    public static final float CUT_BUCKET = -10.0F;
+    public static final float SCOOP_STICK = -85.0F;
 
     public static final int CUTS_PER_STATION = 2;
     public static final int STALL_THRESHOLD_TICKS = 8;
-    public static final int STALL_RELIEF_TICKS = 8;
+    public static final int STALL_RELIEF_TICKS = 4;
+    public static final int MAX_STALL_RETRIES = 3;
 
     private static final float ANGLE_TOLERANCE = 1.25F;
     private static final float REVERSE_THROTTLE = -0.65F;
@@ -61,8 +78,23 @@ public final class AutoTrenchController {
             float bucket,
             int storedUnits,
             Vec3 position,
-            float baseYaw
-    ) {}
+            float baseYaw,
+            boolean cabinBlocked,
+            float trenchDepth
+    ) {
+        public Snapshot(
+                boolean occupied,
+                float cabin,
+                float boom,
+                float stick,
+                float bucket,
+                int storedUnits,
+                Vec3 position,
+                float baseYaw
+        ) {
+            this(occupied, cabin, boom, stick, bucket, storedUnits, position, baseYaw, false, 0.0F);
+        }
+    }
 
     public record Controls(
             float throttle,
@@ -80,8 +112,11 @@ public final class AutoTrenchController {
     private int settledTicks;
     private int completedSections;
     private int cutsAtCurrentStation;
+    private int retriesAtCurrentStation;
     private int stallTicks;
     private int reliefTicks;
+    private int rotationStallTicks;
+    private float swingObstacleBoomBoost;
     private float prevCabin;
     private float prevBoom;
     private float prevStick;
@@ -94,8 +129,11 @@ public final class AutoTrenchController {
         this.settledTicks = 0;
         this.completedSections = 0;
         this.cutsAtCurrentStation = 0;
+        this.retriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
+        this.rotationStallTicks = 0;
+        this.swingObstacleBoomBoost = 0.0F;
         this.reverseOrigin = null;
     }
 
@@ -103,8 +141,11 @@ public final class AutoTrenchController {
         this.active = false;
         this.settledTicks = 0;
         this.cutsAtCurrentStation = 0;
+        this.retriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
+        this.rotationStallTicks = 0;
+        this.swingObstacleBoomBoost = 0.0F;
         this.reverseOrigin = null;
     }
 
@@ -158,9 +199,59 @@ public final class AutoTrenchController {
         };
     }
 
+    public static float calculateCutBoom(float trenchDepth, int cutsAtCurrentStation) {
+        float targetDepth;
+        if (cutsAtCurrentStation == 0 && trenchDepth < 0.2F) {
+            targetDepth = INITIAL_CUT_DEPTH;
+        } else if (trenchDepth >= 0.2F) {
+            targetDepth = Math.min(FULL_CUT_DEPTH, Math.max(INITIAL_CUT_DEPTH + 0.35F, trenchDepth + 0.45F));
+        } else {
+            targetDepth = FULL_CUT_DEPTH;
+        }
+        float boom = 15.0F - (targetDepth * 12.0F);
+        return Math.clamp(boom, ArmKinematics.BOOM_MIN, ArmKinematics.BOOM_MAX);
+    }
+
+    private void handleRotationObstacle(Snapshot state, float targetYaw) {
+        boolean isTurning = Math.abs(wrapDegrees(targetYaw - state.cabin())) > ANGLE_TOLERANCE;
+        if (!isTurning) {
+            rotationStallTicks = 0;
+            swingObstacleBoomBoost = Math.max(0.0F, swingObstacleBoomBoost - 0.5F);
+            return;
+        }
+
+        boolean cabBlocked = state.cabinBlocked()
+                || (Math.abs(wrapDegrees(state.cabin() - prevCabin)) < 0.04F);
+        if (cabBlocked) {
+            rotationStallTicks++;
+            if (rotationStallTicks >= 2) {
+                // Opór zatrzymał koparkę podczas obrotu - wyżej podnosimy całe ramię koparki!
+                swingObstacleBoomBoost = Math.min(
+                        ArmKinematics.BOOM_MAX - SAFE_BOOM,
+                        swingObstacleBoomBoost + 1.5F
+                );
+            }
+        } else {
+            rotationStallTicks = 0;
+        }
+    }
+
     private Controls positionForCut(Snapshot state) {
-        Controls controls = target(state, 0.0F, APPROACH_BOOM, APPROACH_STICK, APPROACH_BUCKET, 0.0F);
-        if (atTarget(state, 0.0F, APPROACH_BOOM, APPROACH_STICK, APPROACH_BUCKET)) {
+        boolean alignedWithWorkArea = Math.abs(wrapDegrees(WORK_CABIN_YAW - state.cabin())) <= ANGLE_TOLERANCE;
+        handleRotationObstacle(state, WORK_CABIN_YAW);
+
+        if (!alignedWithWorkArea) {
+            // Bezpieczny powrót na pole robocze z uniesionym ramieniem
+            float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
+            settledTicks = 0;
+            return target(state, WORK_CABIN_YAW, targetBoom, SAFE_STICK, HELD_BUCKET, 0.0F);
+        }
+
+        // Na polu roboczym: przygotowanie do cięcia - dostosowanie głębokości do wykopu
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation);
+        Controls controls = target(state, WORK_CABIN_YAW, targetCutBoom, APPROACH_STICK, APPROACH_BUCKET, 0.0F);
+
+        if (atTarget(state, WORK_CABIN_YAW, targetCutBoom, APPROACH_STICK, APPROACH_BUCKET)) {
             if (++settledTicks >= POSITION_SETTLE_TICKS) changePhase(Phase.PENETRATE_FOR_CUT);
         } else {
             settledTicks = 0;
@@ -169,9 +260,10 @@ public final class AutoTrenchController {
     }
 
     private Controls penetrateForCut(Snapshot state) {
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation);
         Controls controls = target(
-                state, 0.0F, PENETRATE_BOOM, PENETRATE_STICK, PENETRATE_BUCKET, 0.0F);
-        if (atTarget(state, 0.0F, PENETRATE_BOOM, PENETRATE_STICK, PENETRATE_BUCKET)) {
+                state, WORK_CABIN_YAW, targetCutBoom, PENETRATE_STICK, PENETRATE_BUCKET, 0.0F);
+        if (atTarget(state, WORK_CABIN_YAW, targetCutBoom, PENETRATE_STICK, PENETRATE_BUCKET)) {
             if (++settledTicks >= PENETRATION_SETTLE_TICKS) changePhase(Phase.CUT_AND_CURL);
         } else {
             settledTicks = 0;
@@ -180,8 +272,11 @@ public final class AutoTrenchController {
     }
 
     private Controls cutAndCurl(Snapshot state) {
-        Controls controls = target(state, 0.0F, CUT_BOOM, CUT_STICK, CUT_BUCKET, 0.0F);
-        if (atTarget(state, 0.0F, CUT_BOOM, CUT_STICK, CUT_BUCKET)) {
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation);
+        // Ściąganie przedramienia do siebie i rozpoczęcie nabierania łyżką przy zbliżeniu do gruntu
+        Controls controls = target(state, WORK_CABIN_YAW, targetCutBoom, CUT_STICK, CUT_BUCKET, 0.0F);
+        if (state.storedUnits() >= 128
+                || atTarget(state, WORK_CABIN_YAW, targetCutBoom, CUT_STICK, CUT_BUCKET)) {
             if (++settledTicks >= CUT_SETTLE_TICKS) changePhase(Phase.SCOOP_AND_CURL);
         } else {
             settledTicks = 0;
@@ -190,8 +285,12 @@ public final class AutoTrenchController {
     }
 
     private Controls scoopAndCurl(Snapshot state) {
-        Controls controls = target(state, 0.0F, CUT_BOOM, CUT_STICK, HELD_BUCKET, 0.0F);
-        if (atTarget(state, 0.0F, CUT_BOOM, CUT_STICK, HELD_BUCKET)) {
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation);
+        float liftBoom = Math.min(ArmKinematics.BOOM_MAX, targetCutBoom + 3.0F);
+        // Pełne ściągnięcie przedramienia i domknięcie łyżki z towarem
+        Controls controls = target(state, WORK_CABIN_YAW, liftBoom, SCOOP_STICK, HELD_BUCKET, 0.0F);
+        if (atTarget(state, WORK_CABIN_YAW, liftBoom, SCOOP_STICK, HELD_BUCKET)
+                || (state.storedUnits() > 0 && settledTicks >= SCOOP_SETTLE_TICKS)) {
             if (++settledTicks >= SCOOP_SETTLE_TICKS) changePhase(Phase.LIFT_AND_SWING_RIGHT);
         } else {
             settledTicks = 0;
@@ -204,31 +303,41 @@ public final class AutoTrenchController {
         if (reliefTicks >= STALL_RELIEF_TICKS) {
             reliefTicks = 0;
             stallTicks = 0;
-            if (state.storedUnits() > 0) {
-                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            retriesAtCurrentStation++;
+            if (retriesAtCurrentStation <= MAX_STALL_RETRIES) {
+                changePhase(Phase.CUT_AND_CURL);
             } else {
-                changePhase(Phase.SCOOP_AND_CURL);
+                if (state.storedUnits() > 0) {
+                    changePhase(Phase.LIFT_AND_SWING_RIGHT);
+                } else {
+                    changePhase(Phase.SCOOP_AND_CURL);
+                }
             }
             return Controls.STOPPED;
         }
-        return new Controls(0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F);
+        return new Controls(0.0F, 0.0F, 0.0F, 0.5F, 0.5F, 0.0F);
     }
 
     private Controls liftAndSwingRight(Snapshot state) {
+        handleRotationObstacle(state, RIGHT_DUMP_YAW);
+        float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
         Controls controls = target(
-                state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, HELD_BUCKET, 0.0F);
-        if (atTarget(state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, HELD_BUCKET)) {
+                state, RIGHT_DUMP_YAW, targetBoom, SAFE_STICK, HELD_BUCKET, 0.0F);
+        if (atTarget(state, RIGHT_DUMP_YAW, targetBoom, SAFE_STICK, HELD_BUCKET)) {
             changePhase(Phase.DUMP_RIGHT);
         }
         return controls;
     }
 
     private Controls dumpRight(Snapshot state) {
+        // Podczas wysypywania bardziej wyprostowane przedramię (DUMP_STICK) i otwarta do końca łyżka (DUMP_BUCKET)
         Controls controls = target(
-                state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, DUMP_BUCKET, 0.0F);
+                state, RIGHT_DUMP_YAW, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET, 0.0F);
         if (state.storedUnits() == 0
-                && atTarget(state, RIGHT_DUMP_YAW, SAFE_BOOM, SAFE_STICK, DUMP_BUCKET)) {
+                && atTarget(state, RIGHT_DUMP_YAW, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET)) {
             cutsAtCurrentStation++;
+            retriesAtCurrentStation = 0;
+            swingObstacleBoomBoost = 0.0F;
             if (cutsAtCurrentStation < CUTS_PER_STATION) {
                 changePhase(Phase.POSITION_FOR_CUT);
             } else {
@@ -247,11 +356,15 @@ public final class AutoTrenchController {
         if (reversed >= REVERSE_DISTANCE) {
             completedSections++;
             cutsAtCurrentStation = 0;
+            retriesAtCurrentStation = 0;
+            swingObstacleBoomBoost = 0.0F;
             changePhase(Phase.POSITION_FOR_CUT);
             reverseOrigin = null;
             return Controls.STOPPED;
         }
-        return target(state, 0.0F, SAFE_BOOM, SAFE_STICK, HELD_BUCKET, REVERSE_THROTTLE);
+        handleRotationObstacle(state, WORK_CABIN_YAW);
+        float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
+        return target(state, WORK_CABIN_YAW, targetBoom, SAFE_STICK, HELD_BUCKET, REVERSE_THROTTLE);
     }
 
     private static Controls target(
@@ -316,8 +429,11 @@ public final class AutoTrenchController {
         this.settledTicks = 0;
         this.completedSections = 0;
         this.cutsAtCurrentStation = 0;
+        this.retriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
+        this.rotationStallTicks = 0;
+        this.swingObstacleBoomBoost = 0.0F;
     }
 
     void setPhaseForTest(Phase phase) {
@@ -325,6 +441,9 @@ public final class AutoTrenchController {
         this.settledTicks = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
+        this.retriesAtCurrentStation = 0;
+        this.rotationStallTicks = 0;
+        this.swingObstacleBoomBoost = 0.0F;
     }
 
     public boolean isActive() {
@@ -341,6 +460,10 @@ public final class AutoTrenchController {
 
     public int cutsAtCurrentStation() {
         return cutsAtCurrentStation;
+    }
+
+    public float swingObstacleBoomBoost() {
+        return swingObstacleBoomBoost;
     }
 
     public boolean prefersBucketIntake() {

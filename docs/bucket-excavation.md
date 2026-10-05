@@ -51,6 +51,15 @@ A shallow surface skim does not fill the bucket. It displaces at most `32` integ
 
 Deep tooth contact keeps the existing scoop behavior. The standard bucket can take up to `32` units per tick. The large bucket keeps its deeper secondary bite.
 
+During automated trenching (`/excavator autotrench`):
+- **Dumping Extension**: During the dumping phase, the forearm (stick) extends outward to `DUMP_STICK` (`-50°`) and opens the bucket all the way to `DUMP_BUCKET` (`100°` / `BUCKET_MAX`), depositing cleanly onto the side pile.
+- **Rotation Obstacle Clearance**: During turntable swing (to dump or back to work area), if terrain resistance or collisions stop the rotation, the controller automatically lifts the main boom higher (up to `52°`) to clear mounds or obstacles.
+- **Trench Depth Adaptation**: Rather than plunging 1 block deep on the first pass, digging depth automatically adapts to the trench depth — initial pass cuts a shallow ~0.38m layer, and subsequent passes deepen to the target ~1.0m trench floor.
+- **Excavator Digging Stroke**: Once returned to the work area, the arm positions with extended stick and open bucket, then pulls the forearm inward (stick crowd) and curls the bucket to scoop material as it nears the ground.
+- **Stall Relief**: If the digging stroke stalls against high resistance, a subtle relief procedure slightly recoils the stick (`W`, `+0.5F`) and lifts the boom (`Arrow Up`, `+0.5F`) for 4 ticks, then immediately attempts to curl and scoop a full bucket again. Two complete cuts are performed at each station before the tracks reverse 1 block.
+
+Hydraulic bucket push-up physics (jacking the undercarriage off the ground with the bucket) is temporarily disabled.
+
 ---
 
 ## Dumping Flow Mechanics
