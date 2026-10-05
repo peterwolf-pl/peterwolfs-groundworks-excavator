@@ -426,7 +426,7 @@ public final class AutoTrenchController {
         float workYaw = currentWorkCabinYaw();
         float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
         // Pełniejszy zakres ruchu: mocniejsze ściąganie przedramienia do siebie (-85.0F zamiast -75.0F) podczas zamykania łyżki
-        float targetStick = (retriesAtCurrentStation > 0) ? -88.0F : SCOOP_STICK;
+        float targetStick = (digRetryDepth() > 0) ? -88.0F : SCOOP_STICK;
         Controls controls = target(state, workYaw, targetCutBoom, targetStick, HELD_BUCKET, 0.0F);
 
         // DO KOŃCA: nie przechodzimy dalej, dopóki łyżka nie zamknie się prawie do końca (<= -50.0F)
@@ -564,9 +564,8 @@ public final class AutoTrenchController {
         //    Przedramię wysuwamy dopiero gdy wysięgnik jest już bezpiecznie wysoko (boom >= 32.0F).
         float targetStick = (state.boom() >= 32.0F) ? SAFE_STICK : CUT_STICK;
 
-        // 2. Obrót wieżyczki w prawo dopuszczamy dopiero, gdy łyżka jest domknięta,
-        //    wysięgnik podniósł urobek ponad poziom gruntu (boom >= 22.0F),
-        //    oraz łyżka ma urobek (przynajmniej 50% lub ostatecznie wyczerpano wszystkie próby).
+        // 2. Obrót wieżyczki w prawo dopuszczamy dopiero, gdy łyżka jest domknięta
+        //    i wysięgnik podniósł urobek ponad poziom gruntu (boom >= 22.0F).
         boolean armClearedGround = state.boom() >= 22.0F;
 
         // Reaching this phase is already the authoritative decision that the load should be
