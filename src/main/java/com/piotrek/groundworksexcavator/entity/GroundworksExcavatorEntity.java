@@ -2,7 +2,6 @@ package com.piotrek.groundworksexcavator.entity;
 
 import com.piotrek.groundworks.api.material.GranularMaterial;
 import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
-import com.piotrek.groundworks.terrain.cell.GranularCell;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
@@ -542,12 +541,14 @@ public class GroundworksExcavatorEntity extends Entity {
 
         for (int y = baseY + 1; y >= baseY - 3; y--) {
             BlockPos pos = new BlockPos(probeX, y, probeZ);
-            GranularCell cell = GroundworksExcavationAdapter.queryCell(level, pos);
-            if (cell != null && !cell.isEmpty()) {
-                double surfaceY = pos.getY() + (cell.unitCount() / 512.0D);
-                return (float) Math.max(0.0D, this.getY() - surfaceY);
+            if (GroundworksExcavationAdapter.isDiggable(level, pos)) {
+                double surfaceY = GroundworksExcavationAdapter.getSurfaceWorldY(
+                        level, pos, probePoint.x, probePoint.z);
+                if (Double.isFinite(surfaceY)) {
+                    return (float) Math.max(0.0D, this.getY() - surfaceY);
+                }
             }
-            if (GroundworksExcavationAdapter.isDiggable(level, pos) || level.getBlockState(pos).isSolid()) {
+            if (level.getBlockState(pos).isSolid()) {
                 double surfaceY = pos.getY() + 1.0D;
                 return (float) Math.max(0.0D, this.getY() - surfaceY);
             }
