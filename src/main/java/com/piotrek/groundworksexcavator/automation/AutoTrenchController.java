@@ -62,6 +62,12 @@ public final class AutoTrenchController {
     public static final int STALL_RELIEF_TICKS = 4;
     public static final int MAX_STALL_RETRIES = 3;
 
+    // Load quality rules for the automatic digging cycle. A normal cycle aims for at least
+    // 75% fill. A partially filled bucket is retried several times before a fallback dump.
+    public static final float TARGET_FILL_RATIO = 0.75F;
+    public static final float MIN_ACCEPTABLE_FILL_RATIO = 0.50F;
+    public static final int MAX_LOW_FILL_RETRIES = 5;
+
     private static final float ANGLE_TOLERANCE = 1.25F;
     private static final float REVERSE_THROTTLE = -0.65F;
     private static final double REVERSE_DISTANCE = 1.0D;
@@ -130,9 +136,21 @@ public final class AutoTrenchController {
             return storedUnits >= Math.max(128, cap - 32);
         }
 
-        public boolean isBucketHalfFull() {
+        public float fillRatio() {
             int cap = bucketCapacity > 0 ? bucketCapacity : 512;
-            return storedUnits >= (cap / 2);
+            return Math.clamp((float) storedUnits / (float) cap, 0.0F, 1.0F);
+        }
+
+        public boolean hasTargetLoad() {
+            return fillRatio() >= TARGET_FILL_RATIO;
+        }
+
+        public boolean hasMinimumAcceptableLoad() {
+            return fillRatio() >= MIN_ACCEPTABLE_FILL_RATIO;
+        }
+
+        public boolean isBucketHalfFull() {
+            return hasMinimumAcceptableLoad();
         }
     }
 
@@ -153,6 +171,7 @@ public final class AutoTrenchController {
     private int completedSections;
     private int cutsAtCurrentStation;
     private int retriesAtCurrentStation;
+    private int lowFillRetriesAtCurrentStation;
     private int stallTicks;
     private int reliefTicks;
     private int rotationStallTicks;
@@ -185,6 +204,7 @@ public final class AutoTrenchController {
         this.completedSections = 0;
         this.cutsAtCurrentStation = 0;
         this.retriesAtCurrentStation = 0;
+        this.lowFillRetriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
         this.rotationStallTicks = 0;
@@ -200,6 +220,7 @@ public final class AutoTrenchController {
         this.settledTicks = 0;
         this.cutsAtCurrentStation = 0;
         this.retriesAtCurrentStation = 0;
+        this.lowFillRetriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
         this.rotationStallTicks = 0;
@@ -217,7 +238,14 @@ public final class AutoTrenchController {
         }
 
         if (phase == Phase.POSITION_FOR_CUT && state.storedUnits() > 0) {
-            changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            // A leftover partial load must not enter LIFT_AND_SWING_RIGHT and deadlock there.
+            // Keep it secured and perform another digging stroke unless it is already useful.
+            if (state.hasMinimumAcceptableLoad()) {
+                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            } else {
+                lowFillRetriesAtCurrentStation = Math.max(lowFillRetriesAtCurrentStation, 1);
+                changePhase(Phase.REOPEN_AND_RESET_ARM);
+            }
         }
 
         boolean isDiggingPhase = phase == Phase.PENETRATE_FOR_CUT
@@ -358,7 +386,7 @@ public final class AutoTrenchController {
         }
 
         // Dopiero po zakończeniu obrotu nad pole robocze ramię zaczyna obniżać się do gruntu z otwartą łyżką
-        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, retriesAtCurrentStation);
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
         Controls controls = target(state, workYaw, targetCutBoom, APPROACH_STICK, OPEN_BUCKET, 0.0F);
 
         if (atTarget(state, workYaw, targetCutBoom, APPROACH_STICK, OPEN_BUCKET)) {
@@ -371,10 +399,16 @@ public final class AutoTrenchController {
 
     private Controls penetrateForCut(Snapshot state) {
         float workYaw = currentWorkCabinYaw();
-        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, retriesAtCurrentStation);
-        // Otwarta łyżka wchodzi w grunt na zadaną głębokość
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
+
+        // During a retry, retain the partial load while the arm moves back into the trench.
+        // Only reopen the bucket once boom and stick are already at the penetration pose.
+        boolean retryingLowFill = lowFillRetriesAtCurrentStation > 0;
+        boolean armAtPenetration = atArmTarget(state, workYaw, targetCutBoom, PENETRATE_STICK);
+        float bucketTarget = (retryingLowFill && !armAtPenetration) ? HELD_BUCKET : OPEN_BUCKET;
+
         Controls controls = target(
-                state, workYaw, targetCutBoom, PENETRATE_STICK, OPEN_BUCKET, 0.0F);
+                state, workYaw, targetCutBoom, PENETRATE_STICK, bucketTarget, 0.0F);
         if (atTarget(state, workYaw, targetCutBoom, PENETRATE_STICK, OPEN_BUCKET)) {
             if (++settledTicks >= PENETRATION_SETTLE_TICKS) changePhase(Phase.CUT_AND_CURL);
         } else {
@@ -390,7 +424,7 @@ public final class AutoTrenchController {
         }
 
         float workYaw = currentWorkCabinYaw();
-        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, retriesAtCurrentStation);
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
         // Pełniejszy zakres ruchu: mocniejsze ściąganie przedramienia do siebie (-85.0F zamiast -75.0F) podczas zamykania łyżki
         float targetStick = (retriesAtCurrentStation > 0) ? -88.0F : SCOOP_STICK;
         Controls controls = target(state, workYaw, targetCutBoom, targetStick, HELD_BUCKET, 0.0F);
@@ -413,39 +447,60 @@ public final class AutoTrenchController {
         // Kluczowe: domknięcie łyżki do końca w gruncie zanim wysięgnik ruszy w górę!
         // Przy ponowieniu (retry) ściągamy przedramię jeszcze mocniej do siebie podczas domykania łyżki
         float workYaw = currentWorkCabinYaw();
-        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, retriesAtCurrentStation);
-        float holdStick = Math.min(state.stick(), (retriesAtCurrentStation > 0) ? -88.0F : -85.0F);
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
+        float holdStick = Math.min(state.stick(), (digRetryDepth() > 0) ? -88.0F : -85.0F);
         Controls controls = target(state, workYaw, targetCutBoom, holdStick, HELD_BUCKET, 0.0F);
 
-        // Czekamy na pełne domknięcie łyżki (do HELD_BUCKET = -60.0F) w gruncie
-        boolean bucketClosedInGround = state.bucket() <= -54.0F;
+        // Do not raise the boom until the bucket is genuinely closed, not merely "close enough"
+        // at -54 degrees. This gives the bucket the final hydraulic ticks needed to secure material.
+        boolean bucketClosedInGround = Math.abs(state.bucket() - HELD_BUCKET) <= ANGLE_TOLERANCE;
 
         if (bucketClosedInGround) {
-            // WERYFIKACJA NAŁADOWANIA:
-            // Jeśli łyżka nie jest napełniona chociaż w 50%, natychmiast ponawiamy ruch:
-            // przechodzimy do REOPEN_AND_RESET_ARM -> otwarcie łyżki na maksa (100°),
-            // wyprostowanie przedramienia na zewnątrz (-45°), uniesienie i ponowne wejście głębiej!
-            if (!state.isBucketHalfFull() && retriesAtCurrentStation < MAX_STALL_RETRIES) {
-                retriesAtCurrentStation++;
+            if (++settledTicks < SCOOP_SETTLE_TICKS) {
+                return controls;
+            }
+
+            // Prefer a well-filled bucket. A weak bite is repeated while the bucket remains
+            // secured during repositioning. Only after several failed attempts do we accept
+            // a smaller load as a fallback so the automation cannot loop forever.
+            if (state.hasTargetLoad()) {
+                lowFillRetriesAtCurrentStation = 0;
+                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+                return liftAndSwingRight(state);
+            }
+
+            if (lowFillRetriesAtCurrentStation < MAX_LOW_FILL_RETRIES) {
+                lowFillRetriesAtCurrentStation++;
                 changePhase(Phase.REOPEN_AND_RESET_ARM);
                 return reopenAndResetArm(state);
             }
-            changePhase(Phase.LIFT_AND_SWING_RIGHT);
-            return liftAndSwingRight(state);
+
+            if (state.storedUnits() > 0) {
+                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+                return liftAndSwingRight(state);
+            }
+
+            // No material after all retry attempts: start another low digging attempt instead
+            // of lifting an empty bucket and hanging above the trench.
+            lowFillRetriesAtCurrentStation = 0;
+            changePhase(Phase.REOPEN_AND_RESET_ARM);
+            return reopenAndResetArm(state);
         }
+
+        settledTicks = 0;
         return controls;
     }
 
     private Controls reopenAndResetArm(Snapshot state) {
-        // Ponowienie przy pustej/częściowej łyżce:
-        // Otwieramy łyżkę na maxa (OPEN_BUCKET = 100.0F), wysuwamy przedramię do przodu (-45.0F)
-        // i unosimy lekko wysięgnik ponad dno wykopu, aby swobodnie przygotować pełne cięcie.
+        // Retry with a weak load: first reposition with the bucket CLOSED so the material
+        // already collected is not dumped above the trench. PENETRATE_FOR_CUT will reopen
+        // it only after the arm is back at the cut depth.
         float workYaw = currentWorkCabinYaw();
-        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, retriesAtCurrentStation);
+        float targetCutBoom = calculateCutBoom(state.trenchDepth(), cutsAtCurrentStation, maxDiggingDepth, digRetryDepth());
         float resetBoom = Math.min(ArmKinematics.BOOM_MAX, targetCutBoom + 6.0F);
 
-        Controls controls = target(state, workYaw, resetBoom, APPROACH_STICK, OPEN_BUCKET, 0.0F);
-        if (atTarget(state, workYaw, resetBoom, APPROACH_STICK, OPEN_BUCKET)) {
+        Controls controls = target(state, workYaw, resetBoom, APPROACH_STICK, HELD_BUCKET, 0.0F);
+        if (atTarget(state, workYaw, resetBoom, APPROACH_STICK, HELD_BUCKET)) {
             if (++settledTicks >= POSITION_SETTLE_TICKS) {
                 changePhase(Phase.PENETRATE_FOR_CUT);
             }
@@ -466,20 +521,39 @@ public final class AutoTrenchController {
             reliefTicks = 0;
             stallTicks = 0;
             retriesAtCurrentStation++;
-            if (!state.isBucketHalfFull() && retriesAtCurrentStation <= MAX_STALL_RETRIES) {
-                // Jeśli łyżka jest pusta / poniżej 50%, NIE podnosimy pustej łyżki do wysypania!
-                // Otwieramy łyżkę na maxa i ponawiamy ruch skrawania głębiej!
-                changePhase(Phase.REOPEN_AND_RESET_ARM);
-                return reopenAndResetArm(state);
-            } else {
-                changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            if (!state.hasTargetLoad()) {
+                if (lowFillRetriesAtCurrentStation < MAX_LOW_FILL_RETRIES) {
+                    lowFillRetriesAtCurrentStation++;
+                    changePhase(Phase.REOPEN_AND_RESET_ARM);
+                    return reopenAndResetArm(state);
+                }
+                if (state.storedUnits() <= 0) {
+                    lowFillRetriesAtCurrentStation = 0;
+                    changePhase(Phase.REOPEN_AND_RESET_ARM);
+                    return reopenAndResetArm(state);
+                }
             }
-            return Controls.STOPPED;
+            changePhase(Phase.LIFT_AND_SWING_RIGHT);
+            return liftAndSwingRight(state);
         }
         return new Controls(0.0F, 0.0F, 0.0F, 0.5F, 0.5F, 0.0F);
     }
 
     private Controls liftAndSwingRight(Snapshot state) {
+        float currentWorkYaw = currentWorkCabinYaw();
+
+        if (state.storedUnits() <= 0) {
+            changePhase(Phase.POSITION_FOR_CUT);
+            return positionForCut(state);
+        }
+
+        // Stage 0: finish closing the bucket before the boom is allowed to rise.
+        // This removes the visual/physical race where the arm used to lift a still-closing bucket.
+        boolean bucketSecurelyClosed = Math.abs(state.bucket() - HELD_BUCKET) <= ANGLE_TOLERANCE;
+        if (!bucketSecurelyClosed) {
+            return target(state, currentWorkYaw, state.boom(), state.stick(), HELD_BUCKET, 0.0F);
+        }
+
         handleRotationObstacle(state, RIGHT_DUMP_YAW);
         float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
 
@@ -493,11 +567,12 @@ public final class AutoTrenchController {
         // 2. Obrót wieżyczki w prawo dopuszczamy dopiero, gdy łyżka jest domknięta,
         //    wysięgnik podniósł urobek ponad poziom gruntu (boom >= 22.0F),
         //    oraz łyżka ma urobek (przynajmniej 50% lub ostatecznie wyczerpano wszystkie próby).
-        boolean bucketSecurelyClosed = state.bucket() <= -48.0F;
         boolean armClearedGround = state.boom() >= 22.0F;
-        boolean hasMaterialToDump = state.isBucketHalfFull() || retriesAtCurrentStation >= MAX_STALL_RETRIES;
-        float currentWorkYaw = currentWorkCabinYaw();
-        float targetCab = (bucketSecurelyClosed && armClearedGround && hasMaterialToDump) ? RIGHT_DUMP_YAW : currentWorkYaw;
+
+        // Reaching this phase is already the authoritative decision that the load should be
+        // dumped. Do not apply a second fill threshold here, because that created the
+        // raised-arm deadlock for partially filled buckets.
+        float targetCab = armClearedGround ? RIGHT_DUMP_YAW : currentWorkYaw;
 
         Controls controls = target(
                 state, targetCab, targetBoom, targetStick, HELD_BUCKET, 0.0F);
@@ -515,6 +590,7 @@ public final class AutoTrenchController {
                 && atTarget(state, RIGHT_DUMP_YAW, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET)) {
             cutsAtCurrentStation++;
             retriesAtCurrentStation = 0;
+            lowFillRetriesAtCurrentStation = 0;
             swingObstacleBoomBoost = 0.0F;
 
             int targetLimit = inLeftExpansionPass ? leftExpansionCycles : maxCutsPerStation;
@@ -548,6 +624,7 @@ public final class AutoTrenchController {
             cutsAtCurrentStation = 0;
             inLeftExpansionPass = false;
             retriesAtCurrentStation = 0;
+            lowFillRetriesAtCurrentStation = 0;
             swingObstacleBoomBoost = 0.0F;
             changePhase(Phase.POSITION_FOR_CUT);
             reverseOrigin = null;
@@ -574,6 +651,13 @@ public final class AutoTrenchController {
                 inputFor(state.stick(), stick, ArmKinematics.STICK_SPEED),
                 inputFor(state.bucket(), bucket, ArmKinematics.BUCKET_SPEED)
         );
+    }
+
+    private static boolean atArmTarget(
+            Snapshot state, float cabin, float boom, float stick) {
+        return Math.abs(wrapDegrees(cabin - state.cabin())) <= ANGLE_TOLERANCE
+                && Math.abs(boom - state.boom()) <= ANGLE_TOLERANCE
+                && Math.abs(stick - state.stick()) <= ANGLE_TOLERANCE;
     }
 
     private static boolean atTarget(
@@ -608,6 +692,10 @@ public final class AutoTrenchController {
         return new Vec3(-Math.sin(yaw), 0.0D, Math.cos(yaw));
     }
 
+    private int digRetryDepth() {
+        return Math.max(retriesAtCurrentStation, lowFillRetriesAtCurrentStation);
+    }
+
     private void changePhase(Phase next) {
         this.phase = next;
         this.settledTicks = 0;
@@ -623,6 +711,7 @@ public final class AutoTrenchController {
         this.completedSections = 0;
         this.cutsAtCurrentStation = 0;
         this.retriesAtCurrentStation = 0;
+        this.lowFillRetriesAtCurrentStation = 0;
         this.stallTicks = 0;
         this.reliefTicks = 0;
         this.rotationStallTicks = 0;
@@ -637,6 +726,7 @@ public final class AutoTrenchController {
         this.stallTicks = 0;
         this.reliefTicks = 0;
         this.retriesAtCurrentStation = 0;
+        this.lowFillRetriesAtCurrentStation = 0;
         this.rotationStallTicks = 0;
         this.rotationSettleTicks = 0;
         this.rotationOverWorkAreaComplete = true;
