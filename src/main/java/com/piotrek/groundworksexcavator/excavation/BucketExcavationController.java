@@ -108,7 +108,7 @@ public final class BucketExcavationController {
             if (needed <= 0) continue;
 
             ExcavationResult result = GroundworksExcavationAdapter.excavateAt(
-                    level, target.pos(), contact.worldPoint(), needed);
+                    level, contact.worldPoint(), needed);
             if (!result.success()) continue;
 
             int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
@@ -131,7 +131,7 @@ public final class BucketExcavationController {
                     int extraNeeded = Math.min(
                             bucket.remainingCapacity(), Math.min(48, maxIntake - totalExcavated));
                     ExcavationResult extra = GroundworksExcavationAdapter.excavateAt(
-                            level, below, contact.worldPoint().subtract(0.0D, 0.5D, 0.0D), extraNeeded);
+                            level, contact.worldPoint().subtract(0.0D, 0.5D, 0.0D), extraNeeded);
                     if (extra.success()) {
                         int extraAccepted = bucket.acceptMaterial(
                                 extra.material(), extra.unitsRemoved());
