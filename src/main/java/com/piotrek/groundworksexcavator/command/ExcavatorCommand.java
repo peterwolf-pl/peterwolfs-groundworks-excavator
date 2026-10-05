@@ -1,6 +1,8 @@
 package com.piotrek.groundworksexcavator.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
 import com.piotrek.groundworksexcavator.entity.GroundworksExcavatorEntity;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
@@ -23,9 +25,26 @@ public final class ExcavatorCommand {
                         .then(Commands.literal("debug")
                                 .executes(ctx -> showDebug(ctx.getSource())))
                         .then(Commands.literal("autotrench")
-                                .executes(ctx -> startAutoTrench(ctx.getSource()))
+                                .executes(ctx -> startAutoTrench(ctx.getSource(), 1.0F, 2, 0.0F, 0))
                                 .then(Commands.literal("start")
-                                        .executes(ctx -> startAutoTrench(ctx.getSource())))
+                                        .executes(ctx -> startAutoTrench(ctx.getSource(), 1.0F, 2, 0.0F, 0))
+                                        .then(Commands.argument("depth", FloatArgumentType.floatArg(0.2F, 3.5F))
+                                                .then(Commands.argument("cycles", IntegerArgumentType.integer(1, 20))
+                                                        .executes(ctx -> startAutoTrench(
+                                                                ctx.getSource(),
+                                                                FloatArgumentType.getFloat(ctx, "depth"),
+                                                                IntegerArgumentType.getInteger(ctx, "cycles"),
+                                                                0.0F, 0
+                                                        ))
+                                                        .then(Commands.argument("expandLeftBlocks", FloatArgumentType.floatArg(0.0F, 4.0F))
+                                                                .then(Commands.argument("expandCycles", IntegerArgumentType.integer(1, 20))
+                                                                        .executes(ctx -> startAutoTrench(
+                                                                                ctx.getSource(),
+                                                                                FloatArgumentType.getFloat(ctx, "depth"),
+                                                                                IntegerArgumentType.getInteger(ctx, "cycles"),
+                                                                                FloatArgumentType.getFloat(ctx, "expandLeftBlocks"),
+                                                                                IntegerArgumentType.getInteger(ctx, "expandCycles")
+                                                                        )))))))
                                 .then(Commands.literal("stop")
                                         .executes(ctx -> stopAutoTrench(ctx.getSource())))
                                 .then(Commands.literal("status")
@@ -86,12 +105,19 @@ public final class ExcavatorCommand {
         return 1;
     }
 
-    private static int startAutoTrench(CommandSourceStack source) {
+    private static int startAutoTrench(CommandSourceStack source, float depthBlocks, int cycles, float expandLeft, int expandCycles) {
         GroundworksExcavatorEntity excavator = occupiedExcavator(source);
         if (excavator == null) return 0;
-        excavator.startAutoTrench();
-        source.sendSuccess(() -> Component.literal(
-                "Automatic 1x1 trench test started. Dismount to stop it immediately."), false);
+        excavator.startAutoTrench(depthBlocks, cycles, expandLeft, expandCycles);
+        if (expandLeft > 0.0F && expandCycles > 0) {
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "Automatyczne kopanie z poszerzeniem rozpoczęte: głębokość %.2f bloku/ów, %d cykli środkiem, poszerzenie w lewo o %.1f bloku na %d cykli przed cofnięciem. Zejdź z koparki, aby zatrzymać.",
+                    depthBlocks, cycles, expandLeft, expandCycles)), false);
+        } else {
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "Automatyczne kopanie rozpoczęte: głębokość %.2f bloku/ów, %d cykli/cięć przed cofnięciem. Zejdź z koparki, aby zatrzymać.",
+                    depthBlocks, cycles)), false);
+        }
         return 1;
     }
 
@@ -107,9 +133,15 @@ public final class ExcavatorCommand {
         GroundworksExcavatorEntity excavator = occupiedExcavator(source);
         if (excavator == null) return 0;
         source.sendSuccess(() -> Component.literal(String.format(
-                "Auto trench: active=%b, phase=%s, completed=%d",
+                "Auto trench: active=%b, phase=%s, completed=%d, targetDepth=%.2fm, cyclesAtStation=%d/%d, inLeftPass=%b, expandLeft=%.1f (cycles=%d)",
                 excavator.isAutoTrenchActive(), excavator.getAutoTrenchPhase(),
-                excavator.getAutoTrenchCompletedSections())), false);
+                excavator.getAutoTrenchCompletedSections(),
+                excavator.getAutoTrenchMaxDepth(),
+                excavator.getAutoTrenchCutsAtStation(),
+                excavator.getAutoTrenchMaxCutsPerStation(),
+                excavator.isAutoTrenchInLeftPass(),
+                excavator.getAutoTrenchLeftExpansionBlocks(),
+                excavator.getAutoTrenchLeftExpansionCycles())), false);
         return 1;
     }
 

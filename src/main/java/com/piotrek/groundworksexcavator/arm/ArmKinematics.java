@@ -164,7 +164,8 @@ public final class ArmKinematics {
         Matrix4f stickMatrix = new Matrix4f(boomMatrix);
         stickMatrix.translate(0.0f, 0.0f, 56.0f / 16.0f);
         stickMatrix.rotate(new Quaternionf().rotationZYX(0.0f, 0.0f, (float) Math.toRadians(stickAngle)));
-        sampleArmSegment(samples, stickMatrix, 38.0f / 16.0f);
+        // Pozostawiamy ostatnie 4px przed zawiasem łyżki wolne, by łyżka mogła naturalnie pracować w gruncie
+        sampleArmSegment(samples, stickMatrix, (38.0f - 4.0f) / 16.0f);
         return List.copyOf(samples);
     }
 
@@ -286,5 +287,17 @@ public final class ArmKinematics {
         Vector4f beaconVec = new Vector4f(-10.0f / 16.0f, -27.0f / 16.0f, 12.0f / 16.0f, 1.0f);
         turntableMat.transform(beaconVec);
         return new Vec3(beaconVec.x, beaconVec.y, beaconVec.z);
+    }
+
+    /**
+     * Compute world position of the engine exhaust stack pipe tip on the rear deck (100% 1:1 model match).
+     * Automatically changes with excavator base position, base heading, and upper body turntable yaw rotation!
+     */
+    public static Vec3 getExhaustWorldPosition(Vec3 basePos, float baseYaw, float upperYaw) {
+        Matrix4f turntableMat = computeTurntableMatrix(basePos, baseYaw, 0.0f, 0.0f, upperYaw);
+        // Exhaust stack top rim in upper_body: (13.5F, -26.0F, -16.5F)
+        Vector4f exhaustVec = new Vector4f(13.5f / 16.0f, -26.0f / 16.0f, -16.5f / 16.0f, 1.0f);
+        turntableMat.transform(exhaustVec);
+        return new Vec3(exhaustVec.x, exhaustVec.y, exhaustVec.z);
     }
 }

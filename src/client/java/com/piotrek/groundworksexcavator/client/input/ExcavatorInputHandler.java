@@ -23,6 +23,9 @@ public final class ExcavatorInputHandler {
 
     private static boolean isDriveMode = true;
     private static int currentBucketType = 0; // 0 = Standard (256u), 1 = Large (512u)
+    private static boolean debugHudVisible = false;
+    private static long lastHTapTime = 0L;
+    private static boolean hKeyDownLastTick = false;
 
     private static int lastMode;
     private static int lastBucketType;
@@ -38,6 +41,14 @@ public final class ExcavatorInputHandler {
 
     public static boolean isDriveMode() {
         return isDriveMode;
+    }
+
+    public static boolean isDebugHudVisible() {
+        return debugHudVisible;
+    }
+
+    public static void setDebugHudVisible(boolean visible) {
+        debugHudVisible = visible;
     }
 
     public static void clientTick(Minecraft client) {
@@ -66,6 +77,30 @@ public final class ExcavatorInputHandler {
                 client.player.sendSystemMessage(Component.literal(msg));
             }
 
+            boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
+
+            // 1c. Check Debug HUD Toggle (Quick Double-tap H)
+            boolean hClick = ExcavatorKeyBindings.KEY_DEBUG_HUD != null && ExcavatorKeyBindings.KEY_DEBUG_HUD.consumeClick();
+            boolean hDownDirect = inGame && InputConstants.isKeyDown(InputConstants.KEY_H);
+            boolean hJustPressed = hClick || (hDownDirect && !hKeyDownLastTick);
+            hKeyDownLastTick = hDownDirect;
+
+            if (hJustPressed) {
+                long now = System.currentTimeMillis();
+                if (now - lastHTapTime <= 400L) {
+                    debugHudVisible = !debugHudVisible;
+                    lastHTapTime = 0L;
+                    client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.9F, debugHudVisible ? 1.4F : 0.8F);
+                    client.player.sendSystemMessage(Component.literal(
+                            debugHudVisible
+                                    ? "§6[Koparka] HUD debugowy kątów i obrotu: §a§lWŁĄCZONY"
+                                    : "§6[Koparka] HUD debugowy kątów i obrotu: §c§lWYŁĄCZONY"
+                    ));
+                } else {
+                    lastHTapTime = now;
+                }
+            }
+
             // 2. Read Left Hand inputs (WASD from KeyMapping or PlayerInput)
             boolean keyForward = client.options.keyUp.isDown()
                     || (client.player.input != null && client.player.input.keyPresses.forward());
@@ -75,8 +110,6 @@ public final class ExcavatorInputHandler {
                     || (client.player.input != null && client.player.input.keyPresses.left());
             boolean keyRight = client.options.keyRight.isDown()
                     || (client.player.input != null && client.player.input.keyPresses.right());
-
-            boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
 
             // 3. Boom Controls: Up / Down Arrow (plus KeyMapping)
             boolean boomUp = (ExcavatorKeyBindings.KEY_BOOM_UP != null && ExcavatorKeyBindings.KEY_BOOM_UP.isDown())
@@ -171,6 +204,8 @@ public final class ExcavatorInputHandler {
             lastStick = 0.0F;
             lastBucket = 0.0F;
             keepaliveTicks = 0;
+            lastHTapTime = 0L;
+            hKeyDownLastTick = false;
         }
     }
 }

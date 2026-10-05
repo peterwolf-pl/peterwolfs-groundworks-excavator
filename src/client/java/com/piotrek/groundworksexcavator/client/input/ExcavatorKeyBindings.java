@@ -23,6 +23,7 @@ public final class ExcavatorKeyBindings {
     public static KeyMapping KEY_CAB_RIGHT;
     public static KeyMapping KEY_STICK_OUT;
     public static KeyMapping KEY_STICK_IN;
+    public static KeyMapping KEY_DEBUG_HUD;
 
     private ExcavatorKeyBindings() {}
 
@@ -100,6 +101,14 @@ public final class ExcavatorKeyBindings {
                 "key.pw_groundworks_excavator.stick_in",
                 InputConstants.Type.KEYBOARD,
                 InputConstants.KEY_F,
+                CATEGORY
+        ));
+
+        // Debug HUD Toggle (Double-tap H)
+        KEY_DEBUG_HUD = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.debug_hud",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_H,
                 CATEGORY
         ));
     }
