@@ -300,10 +300,13 @@ class AutoTrenchControllerTest {
                 true, 0.0F, 24.0F, -45.0F, AutoTrenchController.HELD_BUCKET,
                 64, 512, Vec3.ZERO, 0.0F, false, 0.0F));
 
-        // Simulate the reset pose reached with the load still secured.
+        // Simulate the actual adaptive reset pose reached with the load still secured.
+        float retryCutBoom = AutoTrenchController.calculateCutBoom(
+                0.0F, 0, AutoTrenchController.DEFAULT_MAX_TRENCH_DEPTH, 1);
+        float retryResetBoom = retryCutBoom + 6.0F;
         for (int i = 0; i < 4; i++) {
             controller.tick(new AutoTrenchController.Snapshot(
-                    true, 0.0F, 14.0F, AutoTrenchController.APPROACH_STICK,
+                    true, 0.0F, retryResetBoom, AutoTrenchController.APPROACH_STICK,
                     AutoTrenchController.HELD_BUCKET, 64, 512,
                     Vec3.ZERO, 0.0F, false, 0.0F));
         }
@@ -311,7 +314,7 @@ class AutoTrenchControllerTest {
         assertEquals(AutoTrenchController.Phase.PENETRATE_FOR_CUT, controller.phase());
 
         AutoTrenchController.Controls descending = controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 12.0F, AutoTrenchController.PENETRATE_STICK,
+                true, 0.0F, retryCutBoom + 2.0F, AutoTrenchController.PENETRATE_STICK,
                 AutoTrenchController.HELD_BUCKET, 64, 512,
                 Vec3.ZERO, 0.0F, false, 0.0F));
 
