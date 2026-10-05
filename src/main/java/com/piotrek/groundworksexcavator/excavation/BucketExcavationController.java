@@ -107,16 +107,36 @@ public final class BucketExcavationController {
                     Math.min(perContactMax, maxIntake - totalExcavated));
             if (needed <= 0) continue;
 
+            GranularMaterial requiredMaterial = bucket.isEmpty()
+                    ? GroundworksExcavationAdapter.getMaterial(level, target.pos())
+                    : bucket.storedMaterial();
+            if (requiredMaterial == GranularMaterial.EMPTY) {
+                continue;
+            }
+
             ExcavationResult result = GroundworksExcavationAdapter.excavateAt(
-                    level, contact.worldPoint(), needed);
+                    level,
+                    contact.worldPoint(),
+                    needed,
+                    requiredMaterial
+            );
             if (!result.success()) continue;
 
-            int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
-            if (accepted < result.unitsRemoved()) {
-                GroundworksExcavationAdapter.deposit(
-                        level, target.pos(), result.material(), result.unitsRemoved() - accepted);
+            if (result.material().id() != requiredMaterial.id()) {
+                throw new IllegalStateException(
+                        "Groundworks material filter violation: required="
+                                + requiredMaterial.name()
+                                + ", removed=" + result.material().name()
+                );
             }
-            if (accepted <= 0) continue;
+
+            int accepted = bucket.acceptMaterial(result.material(), result.unitsRemoved());
+            if (accepted != result.unitsRemoved()) {
+                throw new IllegalStateException(
+                        "Bucket rejected filtered excavation: removed="
+                                + result.unitsRemoved() + ", accepted=" + accepted
+                );
+            }
 
             totalExcavated += accepted;
             lastMaterial = result.material();
@@ -131,13 +151,24 @@ public final class BucketExcavationController {
                     int extraNeeded = Math.min(
                             bucket.remainingCapacity(), Math.min(48, maxIntake - totalExcavated));
                     ExcavationResult extra = GroundworksExcavationAdapter.excavateAt(
-                            level, contact.worldPoint().subtract(0.0D, 0.5D, 0.0D), extraNeeded);
+                            level,
+                            contact.worldPoint().subtract(0.0D, 0.5D, 0.0D),
+                            extraNeeded,
+                            bucket.storedMaterial()
+                    );
                     if (extra.success()) {
+                        if (extra.material().id() != bucket.storedMaterial().id()) {
+                            throw new IllegalStateException(
+                                    "Groundworks deep-bite material filter violation");
+                        }
+
                         int extraAccepted = bucket.acceptMaterial(
                                 extra.material(), extra.unitsRemoved());
-                        if (extraAccepted < extra.unitsRemoved()) {
-                            GroundworksExcavationAdapter.deposit(
-                                    level, below, extra.material(), extra.unitsRemoved() - extraAccepted);
+                        if (extraAccepted != extra.unitsRemoved()) {
+                            throw new IllegalStateException(
+                                    "Bucket rejected filtered deep bite: removed="
+                                            + extra.unitsRemoved() + ", accepted=" + extraAccepted
+                            );
                         }
                         totalExcavated += extraAccepted;
                     }
