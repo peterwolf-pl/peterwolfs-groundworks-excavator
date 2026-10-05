@@ -2,7 +2,6 @@ package com.piotrek.groundworksexcavator.excavation;
 
 import com.piotrek.groundworks.api.deposit.DepositResult;
 import com.piotrek.groundworks.api.material.GranularMaterial;
-import com.piotrek.groundworks.terrain.cell.GranularCell;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics.BucketPose;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
@@ -103,33 +102,24 @@ public final class BucketDumpingController {
     @Nullable
     private static BlockPos findDepositSurface(ServerLevel level, Vec3 lip, GranularMaterial material) {
         BlockPos start = BlockPos.containing(lip.x, lip.y, lip.z);
-
-        // 1. If lip is directly submerged in or touching an existing cell of the same material
-        GranularCell cellAtLip = GroundworksExcavationAdapter.queryCell(level, start);
-        if (cellAtLip != null && (cellAtLip.isEmpty() || cellAtLip.materialId() == material.id())) {
-            return start;
-        }
-
-        // 2. Gravity raycast straight down from the lip to find the receiving ground/pile surface
         int lipY = start.getY();
         int minY = Math.max(level.getMinY(), lipY - 14);
 
         for (int y = lipY; y >= minY; y--) {
             BlockPos checkPos = new BlockPos(start.getX(), y, start.getZ());
-            GranularCell cell = GroundworksExcavationAdapter.queryCell(level, checkPos);
-            if (cell != null) {
-                if (cell.isEmpty() || cell.materialId() == material.id()) {
-                    if (cell.unitCount() < 512) {
-                        return checkPos; // Existing cell with room
-                    } else {
-                        return checkPos.above(); // Cell is full, pile upward
-                    }
-                }
+            GranularMaterial terrainMaterial =
+                    GroundworksExcavationAdapter.getMaterial(level, checkPos);
+
+            if (terrainMaterial != GranularMaterial.EMPTY) {
+                // Same material may fill the current partial cell. A different
+                // material receives the dump in the cell above.
+                return terrainMaterial.id() == material.id()
+                        ? checkPos
+                        : checkPos.above();
             }
 
             BlockState state = level.getBlockState(checkPos);
             if (!state.isAir()) {
-                // Found ground surface (solid block or convertible soil)
                 return checkPos.above();
             }
         }
