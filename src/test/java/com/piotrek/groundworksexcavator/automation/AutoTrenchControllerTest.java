@@ -235,6 +235,35 @@ class AutoTrenchControllerTest {
     }
 
     @Test
+    @DisplayName("AutoTrench permits bucket dumping only in DUMP_RIGHT")
+    void autoTrenchGatesBucketDumpingToDedicatedPhase() {
+        AutoTrenchController controller = new AutoTrenchController();
+
+        assertTrue(controller.allowsBucketDumping(),
+                "Manual operation must keep geometry-driven dumping enabled");
+
+        controller.start();
+        assertFalse(controller.allowsBucketDumping(),
+                "Positioning and digging phases must not dump a partial load");
+
+        controller.setPhaseForTest(AutoTrenchController.Phase.REOPEN_AND_RESET_ARM);
+        assertFalse(controller.allowsBucketDumping(),
+                "Low-fill retry must retain the partial load");
+
+        controller.setPhaseForTest(AutoTrenchController.Phase.PENETRATE_FOR_CUT);
+        assertFalse(controller.allowsBucketDumping(),
+                "Retry penetration must not spill the bucket");
+
+        controller.setPhaseForTest(AutoTrenchController.Phase.DUMP_RIGHT);
+        assertTrue(controller.allowsBucketDumping(),
+                "Dedicated dump phase must enable material flow");
+
+        controller.stop();
+        assertTrue(controller.allowsBucketDumping(),
+                "Stopping automation must restore manual dumping");
+    }
+
+    @Test
     void dismountStopsAutomationImmediately() {
         AutoTrenchController controller = new AutoTrenchController();
         controller.start();
