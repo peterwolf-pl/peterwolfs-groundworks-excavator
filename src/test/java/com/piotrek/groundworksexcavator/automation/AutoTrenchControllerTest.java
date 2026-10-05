@@ -263,13 +263,63 @@ class AutoTrenchControllerTest {
         // Must curl bucket to hold material
         assertTrue(controls.bucket() < 0.0F, "Must curl/close bucket to end");
 
-        // Once bucket is closed to <= -52.0F, transition to LIFT_AND_SWING_RIGHT
+        // Bucket must reach the actual held angle and settle before the boom is allowed to lift.
+        controller.tick(new AutoTrenchController.Snapshot(
+                true, 0.0F, 10.0F, -60.0F, AutoTrenchController.HELD_BUCKET,
+                500, 512, Vec3.ZERO, 0.0F, false, 0.0F));
         AutoTrenchController.Controls liftControls = controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 10.0F, -60.0F, -55.0F,
+                true, 0.0F, 10.0F, -60.0F, AutoTrenchController.HELD_BUCKET,
                 500, 512, Vec3.ZERO, 0.0F, false, 0.0F));
 
         assertEquals(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT, controller.phase());
-        assertTrue(liftControls.boom() > 0.0F, "Boom must lift up once bucket is closed");
+        assertTrue(liftControls.boom() > 0.0F, "Boom must lift only after the bucket is fully closed and settled");
+    }
+
+    @Test
+    @DisplayName("Partial load at a new cut is routed back into scoop retry instead of raised-arm deadlock")
+    void partialLoadAtPositionRetriesInsteadOfDeadlockingInLift() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.start();
+
+        AutoTrenchController.Controls controls = controller.tick(new AutoTrenchController.Snapshot(
+                true, 0.0F, 24.0F, -45.0F, AutoTrenchController.HELD_BUCKET,
+                64, 512, Vec3.ZERO, 0.0F, false, 0.0F));
+
+        assertEquals(AutoTrenchController.Phase.REOPEN_AND_RESET_ARM, controller.phase(),
+                "A 12.5% bucket must retry digging instead of entering lift");
+        assertEquals(0.0F, controls.cabYaw(), 0.05F, "Retry must stay over the work area");
+        assertTrue(controls.stick() > 0.0F, "Retry must extend the stick for another bite");
+    }
+
+    @Test
+    @DisplayName("Low-fill retry keeps bucket closed until arm returns to trench depth")
+    void retryRetainsPartialLoadUntilPenetrationPose() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.start();
+        controller.tick(new AutoTrenchController.Snapshot(
+                true, 0.0F, 24.0F, -45.0F, AutoTrenchController.HELD_BUCKET,
+                64, 512, Vec3.ZERO, 0.0F, false, 0.0F));
+
+        // Simulate the actual adaptive reset pose reached with the load still secured.
+        float retryCutBoom = AutoTrenchController.calculateCutBoom(
+                0.0F, 0, AutoTrenchController.DEFAULT_MAX_TRENCH_DEPTH, 1);
+        float retryResetBoom = retryCutBoom + 6.0F;
+        for (int i = 0; i < 4; i++) {
+            controller.tick(new AutoTrenchController.Snapshot(
+                    true, 0.0F, retryResetBoom, AutoTrenchController.APPROACH_STICK,
+                    AutoTrenchController.HELD_BUCKET, 64, 512,
+                    Vec3.ZERO, 0.0F, false, 0.0F));
+        }
+
+        assertEquals(AutoTrenchController.Phase.PENETRATE_FOR_CUT, controller.phase());
+
+        AutoTrenchController.Controls descending = controller.tick(new AutoTrenchController.Snapshot(
+                true, 0.0F, retryCutBoom + 2.0F, AutoTrenchController.PENETRATE_STICK,
+                AutoTrenchController.HELD_BUCKET, 64, 512,
+                Vec3.ZERO, 0.0F, false, 0.0F));
+
+        assertEquals(0.0F, descending.bucket(), 0.05F,
+                "Bucket must stay closed while the retry arm is still above target cut depth");
     }
 
     @Test
@@ -300,50 +350,61 @@ class AutoTrenchControllerTest {
         assertEquals(0.0F, controls.cabYaw(), 0.05F, "Must not swing cab while bucket is still open!");
         // Must command bucket to close to HELD_BUCKET (-60.0)
         assertTrue(controls.bucket() < 0.0F, "Must command bucket to curl/close");
-        // Must command boom up
-        assertTrue(controls.boom() > 0.0F, "Must command boom up");
+        // Boom must stay still until the bucket is actually closed.
+        assertEquals(0.0F, controls.boom(), 0.05F, "Boom must not rise while the bucket is still closing");
 
-        // Bucket is closed (e.g. -50 deg), boom clears ground (e.g. 24 deg), and bucket is half full (e.g. 300 units)
+        // Once the bucket is fully closed, lifting can begin, but swing still waits for ground clearance.
+        AutoTrenchController.Controls liftControls = controller.tick(snapshot(
+                true, 0.0F, 12.0F, -45.0F, AutoTrenchController.HELD_BUCKET, 300, Vec3.ZERO, 0.0F));
+        assertTrue(liftControls.boom() > 0.0F, "Boom must lift after the bucket reaches HELD_BUCKET");
+        assertEquals(0.0F, liftControls.cabYaw(), 0.05F, "Cab must not swing before the boom clears the ground");
+
         AutoTrenchController.Controls swingControls = controller.tick(snapshot(
-                true, 0.0F, 24.0F, -45.0F, -55.0F, 300, Vec3.ZERO, 0.0F));
+                true, 0.0F, 24.0F, -45.0F, AutoTrenchController.HELD_BUCKET, 300, Vec3.ZERO, 0.0F));
 
-        // Now it must swing right towards dump!
-        assertTrue(swingControls.cabYaw() > 0.0F, "Must swing cab right once bucket is fully closed and boom is clear");
+        // Now it must swing right towards dump. Fill level is not revalidated in this phase.
+        assertTrue(swingControls.cabYaw() > 0.0F, "Must swing cab right once bucket is closed and boom is clear");
     }
 
     @Test
-    @DisplayName("Verification: bucket must be filled at least 50% before swinging to dump, retries deeper with fuller range")
-    void bucketMustBeHalfFullBeforeSwingingToDump() {
+    @DisplayName("Weak bucket loads retry toward 75% target before lifting")
+    void weakBucketLoadRetriesBeforeSwingingToDump() {
         AutoTrenchController controller = new AutoTrenchController();
         controller.start();
         controller.setPhaseForTest(AutoTrenchController.Phase.CLOSE_BUCKET_IN_TRENCH);
 
-        // Case 1: Bucket has very little material (e.g. 50 units out of 512, < 50%)
-        // When bucket finishes closing in trench (bucket <= -52):
-        AutoTrenchController.Controls retryCmd = controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 10.0F, -75.0F, -55.0F, 50, 512, Vec3.ZERO, 0.0F, false, 0.0F));
+        // Case 1: Bucket has very little material (50 / 512). It must not lift.
+        AutoTrenchController.Snapshot weakClosed = new AutoTrenchController.Snapshot(
+                true, 0.0F, 10.0F, -75.0F, AutoTrenchController.HELD_BUCKET,
+                50, 512, Vec3.ZERO, 0.0F, false, 0.0F);
+        controller.tick(weakClosed);
+        AutoTrenchController.Controls retryCmd = controller.tick(weakClosed);
 
-        // It should NOT proceed to LIFT_AND_SWING_RIGHT, but repeat the stroke via REOPEN_AND_RESET_ARM!
         assertEquals(AutoTrenchController.Phase.REOPEN_AND_RESET_ARM, controller.phase(),
-                "Must reopen and reset arm if bucket is not at least 50% full");
-        // Must command bucket to open on max (OPEN_BUCKET = 100)
-        assertTrue(retryCmd.bucket() > 0.0F, "Must command bucket to open to max upon retry");
-        // Must command stick to extend out
-        assertTrue(retryCmd.stick() > 0.0F, "Must command stick out upon retry");
+                "A weak bite must trigger another scoop instead of lifting");
+        assertTrue(retryCmd.stick() > 0.0F, "Retry must extend the stick for another bite");
+        assertTrue(retryCmd.bucket() <= 0.0F,
+                "Retry reposition must keep the partial load secured instead of opening/dumping it above the trench");
 
-        // During retry cut, boom must be slightly deeper and stick pulls even more inward (-88 deg)
-        controller.setPhaseForTest(AutoTrenchController.Phase.CUT_AND_CURL);
-        AutoTrenchController.Controls retryControls = controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 10.0F, -60.0F, 0.0F, 50, 512, Vec3.ZERO, 0.0F, false, 0.0F));
-        assertTrue(retryControls.stick() < 0.0F, "Retry stroke must pull stick inward strongly");
-
-        // Case 2: Bucket has at least 50% (e.g. 260 units out of 512)
+        // Case 2: 260 / 512 is above 50%, but still below the preferred 75% target.
         controller.setPhaseForTest(AutoTrenchController.Phase.CLOSE_BUCKET_IN_TRENCH);
-        controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 10.0F, -75.0F, -55.0F, 260, 512, Vec3.ZERO, 0.0F, false, 0.0F));
+        AutoTrenchController.Snapshot mediumClosed = new AutoTrenchController.Snapshot(
+                true, 0.0F, 10.0F, -75.0F, AutoTrenchController.HELD_BUCKET,
+                260, 512, Vec3.ZERO, 0.0F, false, 0.0F);
+        controller.tick(mediumClosed);
+        controller.tick(mediumClosed);
+        assertEquals(AutoTrenchController.Phase.REOPEN_AND_RESET_ARM, controller.phase(),
+                "A medium load should still retry while retry budget remains");
 
+        // Case 3: 400 / 512 exceeds the 75% target and may lift normally.
+        controller.setPhaseForTest(AutoTrenchController.Phase.CLOSE_BUCKET_IN_TRENCH);
+        AutoTrenchController.Snapshot goodClosed = new AutoTrenchController.Snapshot(
+                true, 0.0F, 10.0F, -75.0F, AutoTrenchController.HELD_BUCKET,
+                400, 512, Vec3.ZERO, 0.0F, false, 0.0F);
+        controller.tick(goodClosed);
+        controller.tick(goodClosed);
         assertEquals(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT, controller.phase(),
-                "Must proceed to lift and swing right when bucket is at least 50% full");
+                "A load above the 75% target may proceed to lift and dump");
     }
 
     @Test
@@ -519,10 +580,10 @@ class AutoTrenchControllerTest {
         for (int i = 0; i < AutoTrenchController.STALL_RELIEF_TICKS; i++) {
             controller.tick(new AutoTrenchController.Snapshot(
                     true, 0.0F, 10.0F, -70.0F, 10.0F,
-                    300, 512, Vec3.ZERO, 0.0F, false, 0.0F));
+                    400, 512, Vec3.ZERO, 0.0F, false, 0.0F));
         }
         assertEquals(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT, controller.phase(),
-                "After relief with loaded bucket, controller lifts and swings to dump");
+                "After relief with a well-loaded bucket, controller lifts and swings to dump");
     }
 
     private static AutoTrenchController.Snapshot snapshot(
