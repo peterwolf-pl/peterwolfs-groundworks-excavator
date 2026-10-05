@@ -425,9 +425,14 @@ public class GroundworksExcavatorEntity extends Entity {
         this.lastExcavatedUnits = digResult.unitsExcavated();
         this.entityData.set(IS_DIGGING, digResult.excavated());
 
-        // 6. Simulate material dumping into Groundworks terrain
+        // 6. Simulate material dumping into Groundworks terrain.
+        // AutoTrench owns its dump timing, so retry/penetration poses cannot spill
+        // a partial load merely because the bucket geometry crosses the dump angle.
         BucketDumpingController.DumpTickResult dumpResult =
-                BucketDumpingController.tick(serverLevel, this.bucket, this.currentBucketPose);
+                this.autoTrenchController.allowsBucketDumping()
+                        ? BucketDumpingController.tick(
+                                serverLevel, this.bucket, this.currentBucketPose)
+                        : BucketDumpingController.DumpTickResult.NONE;
 
         this.lastDepositedUnits = dumpResult.unitsDeposited();
         this.entityData.set(IS_DUMPING, dumpResult.dumping());
