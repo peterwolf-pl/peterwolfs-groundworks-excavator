@@ -779,4 +779,12 @@ public final class AutoTrenchController {
                 || phase == Phase.SCOOP_AND_CURL
                 || phase == Phase.RELIEVE_STALL);
     }
+
+    /**
+     * Manual operation may dump whenever bucket geometry permits. Automatic trenching
+     * may dump only in its dedicated dump phase so retry poses cannot spill a partial load.
+     */
+    public boolean allowsBucketDumping() {
+        return !active || phase == Phase.DUMP_RIGHT;
+    }
 }
