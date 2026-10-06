@@ -9,6 +9,7 @@ import com.piotrek.groundworksexcavator.automation.AutoTrenchController;
 import com.piotrek.groundworksexcavator.excavation.ArmTerrainContactController;
 import com.piotrek.groundworksexcavator.excavation.BucketDumpingController;
 import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
+import com.piotrek.groundworksexcavator.excavation.HydraulicHammerController;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
 import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
@@ -55,6 +56,7 @@ public class GroundworksExcavatorEntity extends Entity {
     // ── Bucket Variants ──────────────────────────────────────────────
     public static final int BUCKET_STANDARD = 0; // 256 units (0.500 m³)
     public static final int BUCKET_LARGE = 1;    // 512 units (1.000 m³ - 2x capacity)
+    public static final int BUCKET_HAMMER = 2;   // hydraulic breaker, no material intake
     public static final int CAPACITY_STANDARD = 256;
     public static final int CAPACITY_LARGE = 512;
 
@@ -89,6 +91,8 @@ public class GroundworksExcavatorEntity extends Entity {
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> IS_DUMPING =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> IS_HAMMERING =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Float> MACHINE_LOAD =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
 
@@ -104,6 +108,7 @@ public class GroundworksExcavatorEntity extends Entity {
     private float inputBoom;
     private float inputStick;
     private float inputBucket;
+    private boolean inputHammerActive;
     private int inputFreshTicks;
 
     @Nullable
@@ -142,6 +147,7 @@ public class GroundworksExcavatorEntity extends Entity {
         builder.define(VEHICLE_ROLL, 0.0F);
         builder.define(IS_DIGGING, false);
         builder.define(IS_DUMPING, false);
+        builder.define(IS_HAMMERING, false);
         builder.define(MACHINE_LOAD, 0.0F);
     }
 
@@ -254,6 +260,7 @@ public class GroundworksExcavatorEntity extends Entity {
             this.inputBoom = 0.0F;
             this.inputStick = 0.0F;
             this.inputBucket = 0.0F;
+            this.inputHammerActive = false;
         }
 
         // 2. Update hydraulic joint angles gradually
@@ -300,11 +307,14 @@ public class GroundworksExcavatorEntity extends Entity {
         boolean stickBlocked = (newStick != constrained.stick()) && Math.abs(this.inputStick) > 0.01F;
         boolean bucketBlocked = (newBucket != constrained.bucket()) && Math.abs(this.inputBucket) > 0.01F;
         boolean armRestricted = cabinBlocked || boomBlocked || stickBlocked || bucketBlocked;
+        boolean hammerRequested = this.isHammerAttachment() && this.inputHammerActive;
 
         float targetLoad = 0.0F;
         if (armRestricted) {
             // High hydraulic overload when attempting to force steel into solid terrain
             targetLoad = 1.0F;
+        } else if (hammerRequested) {
+            targetLoad = 0.36F;
         } else if (this.isDigging()) {
             targetLoad = 0.55F;
         } else if (Math.abs(this.inputThrottle) > 0.01F || Math.abs(this.inputSteer) > 0.01F) {
@@ -315,7 +325,9 @@ public class GroundworksExcavatorEntity extends Entity {
 
         // Smooth load ramp up and decay
         float currentLoad = this.getMachineLoad();
-        float updatedLoad = Mth.lerp(armRestricted ? 0.45F : 0.15F, currentLoad, targetLoad);
+        float updatedLoad = (!armRestricted && hammerRequested)
+                ? 0.36F
+                : Mth.lerp(armRestricted ? 0.45F : 0.15F, currentLoad, targetLoad);
         if (updatedLoad < 0.01F) updatedLoad = 0.0F;
         this.entityData.set(MACHINE_LOAD, updatedLoad);
 
@@ -414,28 +426,46 @@ public class GroundworksExcavatorEntity extends Entity {
             this.previousBucketPose = this.currentBucketPose;
         }
 
-        // 5. Simulate terrain excavation through Groundworks API
-        BucketExcavationController.ExcavationTickResult digResult = BucketExcavationController.tick(
-                serverLevel,
-                this.bucket,
-                this.previousBucketPose,
-                this.currentBucketPose,
-                this.autoTrenchController.prefersBucketIntake());
+        // 5-6. Run exactly one working attachment. The hammer never feeds the
+        // bucket container; crushed cobblestone is displaced directly into the world.
+        if (this.isHammerAttachment()) {
+            HydraulicHammerController.HammerTickResult hammerResult =
+                    HydraulicHammerController.tick(
+                            serverLevel,
+                            this.currentBucketPose,
+                            hammerRequested,
+                            this.tickCount);
 
-        this.lastExcavatedUnits = digResult.unitsExcavated();
-        this.entityData.set(IS_DIGGING, digResult.excavated());
+            this.lastExcavatedUnits = hammerResult.unitsCrushed();
+            this.lastDepositedUnits = hammerResult.unitsCrushed();
+            this.entityData.set(IS_DIGGING, false);
+            this.entityData.set(IS_DUMPING, false);
+            this.entityData.set(IS_HAMMERING, hammerRequested);
+        } else {
+            this.entityData.set(IS_HAMMERING, false);
 
-        // 6. Simulate material dumping into Groundworks terrain.
-        // AutoTrench owns its dump timing, so retry/penetration poses cannot spill
-        // a partial load merely because the bucket geometry crosses the dump angle.
-        BucketDumpingController.DumpTickResult dumpResult =
-                this.autoTrenchController.allowsBucketDumping()
-                        ? BucketDumpingController.tick(
-                                serverLevel, this.bucket, this.currentBucketPose)
-                        : BucketDumpingController.DumpTickResult.NONE;
+            BucketExcavationController.ExcavationTickResult digResult =
+                    BucketExcavationController.tick(
+                            serverLevel,
+                            this.bucket,
+                            this.previousBucketPose,
+                            this.currentBucketPose,
+                            this.autoTrenchController.prefersBucketIntake());
 
-        this.lastDepositedUnits = dumpResult.unitsDeposited();
-        this.entityData.set(IS_DUMPING, dumpResult.dumping());
+            this.lastExcavatedUnits = digResult.unitsExcavated();
+            this.entityData.set(IS_DIGGING, digResult.excavated());
+
+            // AutoTrench owns its dump timing, so retry/penetration poses cannot
+            // spill a partial load merely because the bucket crosses the dump angle.
+            BucketDumpingController.DumpTickResult dumpResult =
+                    this.autoTrenchController.allowsBucketDumping()
+                            ? BucketDumpingController.tick(
+                                    serverLevel, this.bucket, this.currentBucketPose)
+                            : BucketDumpingController.DumpTickResult.NONE;
+
+            this.lastDepositedUnits = dumpResult.unitsDeposited();
+            this.entityData.set(IS_DUMPING, dumpResult.dumping());
+        }
 
         // 7. Synchronize authoritative bucket state to clients
         this.entityData.set(MATERIAL_ID, this.bucket.materialId());
@@ -464,6 +494,10 @@ public class GroundworksExcavatorEntity extends Entity {
         this.inputStick = Mth.clamp(stickInput, -1.0F, 1.0F);
         this.inputBucket = Mth.clamp(bucketInput, -1.0F, 1.0F);
         this.inputFreshTicks = 10;
+    }
+
+    public void setHammerInput(boolean active) {
+        this.inputHammerActive = active && this.isHammerAttachment();
     }
 
     public void startAutoTrench() {
@@ -679,7 +713,8 @@ public class GroundworksExcavatorEntity extends Entity {
                 || Math.abs(this.getTrackLeftSpeed()) > 0.001F
                 || Math.abs(this.getTrackRightSpeed()) > 0.001F
                 || this.isDigging()
-                || this.isDumping();
+                || this.isDumping()
+                || this.isHammering();
     }
 
     public int getControlMode() {
@@ -703,15 +738,30 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     public void setBucketType(int type) {
-        int clamped = (type == BUCKET_LARGE) ? BUCKET_LARGE : BUCKET_STANDARD;
+        int clamped = (type == BUCKET_LARGE || type == BUCKET_HAMMER)
+                ? type
+                : BUCKET_STANDARD;
         this.entityData.set(BUCKET_TYPE, clamped);
-        int targetCap = (clamped == BUCKET_LARGE) ? CAPACITY_LARGE : CAPACITY_STANDARD;
-        this.bucket.setCapacity(targetCap);
-        this.entityData.set(CAPACITY, targetCap);
+
+        // The detached bucket keeps its stored material while the hammer is fitted.
+        // Capacity changes only when an actual bucket is selected.
+        if (clamped != BUCKET_HAMMER) {
+            int targetCap = (clamped == BUCKET_LARGE) ? CAPACITY_LARGE : CAPACITY_STANDARD;
+            this.bucket.setCapacity(targetCap);
+            this.entityData.set(CAPACITY, targetCap);
+            this.inputHammerActive = false;
+            this.entityData.set(IS_HAMMERING, false);
+        } else {
+            this.entityData.set(CAPACITY, this.bucket.capacity());
+        }
     }
 
     public void toggleBucketType() {
-        setBucketType(getBucketType() == BUCKET_STANDARD ? BUCKET_LARGE : BUCKET_STANDARD);
+        setBucketType((getBucketType() + 1) % 3);
+    }
+
+    public boolean isHammerAttachment() {
+        return this.getBucketType() == BUCKET_HAMMER;
     }
 
     public float getTrackLeftSpeed() {
@@ -768,6 +818,10 @@ public class GroundworksExcavatorEntity extends Entity {
 
     public boolean isDumping() {
         return this.entityData.get(IS_DUMPING);
+    }
+
+    public boolean isHammering() {
+        return this.entityData.get(IS_HAMMERING);
     }
 
     public BucketMaterialContainer getBucket() {

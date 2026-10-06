@@ -6,6 +6,7 @@ import org.joml.Quaternionf;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.client.GroundworksExcavatorClient;
 import com.piotrek.groundworksexcavator.client.model.ExcavatorModel;
+import com.piotrek.groundworksexcavator.client.model.HydraulicHammerModel;
 import com.piotrek.groundworksexcavator.entity.GroundworksExcavatorEntity;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -21,12 +22,17 @@ import net.minecraft.resources.Identifier;
 public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity, ExcavatorRenderState> {
 
     public static final Identifier TEXTURE = GroundworksExcavatorMod.id("textures/entity/excavator.png");
+    public static final Identifier HAMMER_TEXTURE =
+            GroundworksExcavatorMod.id("textures/entity/hydraulic_hammer.png");
 
     private final ExcavatorModel model;
+    private final HydraulicHammerModel hammerModel;
 
     public ExcavatorRenderer(EntityRendererProvider.Context context) {
         super(context);
         this.model = new ExcavatorModel(context.bakeLayer(GroundworksExcavatorClient.EXCAVATOR_LAYER));
+        this.hammerModel = new HydraulicHammerModel(
+                context.bakeLayer(GroundworksExcavatorClient.HYDRAULIC_HAMMER_LAYER));
         this.shadowRadius = 1.6F;
     }
 
@@ -57,6 +63,11 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
         state.isDigging = entity.isDigging();
         state.isDumping = entity.isDumping();
+        state.isHammering = entity.isHammering();
+        float hammerPhase = ((entity.tickCount + partialTick) % 4.0F) / 4.0F;
+        state.hammerStroke = state.isHammering
+                ? (float) Math.sin(hammerPhase * Math.PI)
+                : 0.0F;
 
         state.isOperating = entity.isOperating();
         state.machineLoad = entity.getMachineLoad();
@@ -95,6 +106,33 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 OverlayTexture.NO_OVERLAY,
                 state.outlineColor
         );
+
+        if (state.bucketType == GroundworksExcavatorEntity.BUCKET_HAMMER) {
+            stack.pushPose();
+
+            // Reproduce the exact ModelPart hierarchy to the bucket joint.
+            // ArmKinematics uses the same offsets and rotations server-side.
+            stack.translate(0.0F, 9.0F / 16.0F, 0.0F);
+            stack.rotateDegrees(Axis.YP, state.upperYaw);
+            stack.translate(5.5F / 16.0F, -6.0F / 16.0F, 5.0F / 16.0F);
+            stack.rotateDegrees(Axis.XP, state.boomAngle);
+            stack.translate(0.0F, 0.0F, 56.0F / 16.0F);
+            stack.rotateDegrees(Axis.XP, state.stickAngle);
+            stack.translate(0.0F, 0.0F, 38.0F / 16.0F);
+            stack.rotateDegrees(Axis.XP, state.bucketAngle + 45.0F);
+
+            this.hammerModel.setupAnim(state);
+            collector.submitModel(
+                    this.hammerModel,
+                    state,
+                    stack,
+                    RenderTypes.entityCutout(HAMMER_TEXTURE),
+                    state.lightCoords,
+                    OverlayTexture.NO_OVERLAY,
+                    state.outlineColor
+            );
+            stack.popPose();
+        }
 
         stack.popPose();
     }

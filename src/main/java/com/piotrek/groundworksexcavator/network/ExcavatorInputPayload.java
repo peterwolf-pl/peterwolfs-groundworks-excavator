@@ -11,8 +11,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * <p>Transmits:
  * <ul>
  *   <li>control mode (0=Drive, 1=Arm)</li>
- *   <li>bucket type (0=Standard 256u, 1=Large/Bulk 512u)</li>
- *   <li>normalized drive inputs (-1.0 .. +1.0) for tracks, cab, boom, stick, bucket</li>
+ *   <li>attachment type (0=Standard bucket, 1=Large bucket, 2=Hydraulic hammer)</li>
+ *   <li>normalized drive inputs (-1.0 .. +1.0) for tracks, cab, boom, stick, attachment angle</li>
+ *   <li>momentary or latched hydraulic hammer request</li>
  * </ul>
  */
 public record ExcavatorInputPayload(
@@ -23,7 +24,8 @@ public record ExcavatorInputPayload(
         float upperYawInput,
         float boomInput,
         float stickInput,
-        float bucketInput
+        float bucketInput,
+        boolean hammerActive
 ) implements CustomPacketPayload {
 
     public static final Type<ExcavatorInputPayload> TYPE = new Type<>(GroundworksExcavatorMod.id("excavator_input"));
@@ -39,7 +41,8 @@ public record ExcavatorInputPayload(
                     buffer.readFloat(),
                     buffer.readFloat(),
                     buffer.readFloat(),
-                    buffer.readFloat()
+                    buffer.readFloat(),
+                    buffer.readBoolean()
             );
         }
 
@@ -53,6 +56,7 @@ public record ExcavatorInputPayload(
             buffer.writeFloat(payload.boomInput);
             buffer.writeFloat(payload.stickInput);
             buffer.writeFloat(payload.bucketInput);
+            buffer.writeBoolean(payload.hammerActive);
         }
     };
 

@@ -36,6 +36,17 @@ public final class ArmKinematics {
 
     public static final float BUCKET_MOUNT_OFFSET_DEG = 45.0F;
 
+    // Hydraulic breaker dimensions in model pixels. These values are shared by
+    // rendering and server kinematics so the visible chisel tip and world contact
+    // point remain exactly calibrated.
+    public static final float HAMMER_CHISEL_BASE_Z_PX = -28.0F;
+    public static final float HAMMER_CHISEL_LENGTH_PX = 10.0F;
+    public static final float HAMMER_STROKE_PX = 3.0F;
+    public static final float HAMMER_TIP_REST_Z_PX =
+            HAMMER_CHISEL_BASE_Z_PX - HAMMER_CHISEL_LENGTH_PX;
+    public static final float HAMMER_TIP_STRIKE_Z_PX =
+            HAMMER_TIP_REST_Z_PX - HAMMER_STROKE_PX;
+
     // ── Joint Speeds (degrees per tick) ───────────────────────────────
     public static final float CAB_TURN_SPEED = 3.0F;
     public static final float BOOM_SPEED = 2.4F;
@@ -192,7 +203,7 @@ public final class ArmKinematics {
     /**
      * Computes the full authoritative bucket pose matching the visual model 1:1.
      *
-     * @param bucketType 0 = Standard (256u), 1 = Large Bulk (512u)
+     * @param bucketType 0 = Standard (256u), 1 = Large Bulk (512u), 2 = pneumatic hammer
      */
     public static BucketPose computeBucketPose(
             Vec3 basePos,
@@ -214,40 +225,66 @@ public final class ArmKinematics {
         bucketMat.transform(pivotVec);
         Vec3 pivot = new Vec3(pivotVec.x, pivotVec.y, pivotVec.z);
 
-        // 2. Cutting teeth coordinates (matching the exact boxes in ExcavatorModel)
-        // Standard: 5 teeth across 12px width (-4.75 to +5.75)
-        // Large: 7 teeth across 20px width (-9.0 to +9.0)
-        float[] teethX = (bucketType == 1)
-                ? new float[] { -9.0f, -6.0f, -3.0f, 0.0f, 3.0f, 6.0f, 9.0f }
-                : new float[] { -4.75f, -2.0f, 0.75f, 3.5f, 5.75f };
+        List<Vec3> teethPoints;
+        Vec3 cuttingEdge;
+        Vec3 lip;
+        Vec3 forwardCutting;
+        Vec3 scoopNormal;
 
-        int count = teethX.length;
-        List<Vec3> teethPoints = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            Vector4f tv = new Vector4f(teethX[i] / 16.0f, 9.1f / 16.0f, -17.5f / 16.0f, 1.0f);
-            bucketMat.transform(tv);
-            teethPoints.add(new Vec3(tv.x, tv.y, tv.z));
+        if (bucketType == 2) {
+            // Hydraulic hammer: the logical contact point is the visible chisel tip
+            // at maximum stroke. This shares dimensions with HydraulicHammerModel.
+            Vector4f tipVec = new Vector4f(
+                    0.0f, 0.0f, HAMMER_TIP_STRIKE_Z_PX / 16.0f, 1.0f);
+            bucketMat.transform(tipVec);
+            cuttingEdge = new Vec3(tipVec.x, tipVec.y, tipVec.z);
+            teethPoints = List.of(cuttingEdge);
+
+            Vector4f collarVec = new Vector4f(
+                    0.0f, 0.0f, HAMMER_CHISEL_BASE_Z_PX / 16.0f, 1.0f);
+            bucketMat.transform(collarVec);
+            lip = new Vec3(collarVec.x, collarVec.y, collarVec.z);
+
+            Vector4f hammerDirVec = new Vector4f(0.0f, 0.0f, -1.0f, 0.0f);
+            bucketMat.transform(hammerDirVec);
+            forwardCutting = new Vec3(
+                    hammerDirVec.x, hammerDirVec.y, hammerDirVec.z).normalize();
+
+            Vector4f normalVec = new Vector4f(0.0f, -1.0f, 0.0f, 0.0f);
+            bucketMat.transform(normalVec);
+            scoopNormal = new Vec3(normalVec.x, normalVec.y, normalVec.z).normalize();
+        } else {
+            // Cutting teeth coordinates (matching the exact boxes in ExcavatorModel)
+            // Standard: 5 teeth across 12px width. Large: 7 teeth across 20px width.
+            float[] teethX = (bucketType == 1)
+                    ? new float[] { -9.0f, -6.0f, -3.0f, 0.0f, 3.0f, 6.0f, 9.0f }
+                    : new float[] { -4.75f, -2.0f, 0.75f, 3.5f, 5.75f };
+
+            teethPoints = new ArrayList<>(teethX.length);
+            for (float toothX : teethX) {
+                Vector4f tv = new Vector4f(
+                        toothX / 16.0f, 9.1f / 16.0f, -17.5f / 16.0f, 1.0f);
+                bucketMat.transform(tv);
+                teethPoints.add(new Vec3(tv.x, tv.y, tv.z));
+            }
+
+            cuttingEdge = teethPoints.get(teethPoints.size() / 2);
+
+            Vector4f lipVec = new Vector4f(
+                    0.0f, 8.0f / 16.0f, -14.0f / 16.0f, 1.0f);
+            bucketMat.transform(lipVec);
+            lip = new Vec3(lipVec.x, lipVec.y, lipVec.z);
+
+            // In bucket local coords, teeth point in (-Z) and downward.
+            Vector4f cuttingDirVec = new Vector4f(0.0f, 0.3f, -0.95f, 0.0f);
+            bucketMat.transform(cuttingDirVec);
+            forwardCutting = new Vec3(
+                    cuttingDirVec.x, cuttingDirVec.y, cuttingDirVec.z).normalize();
+
+            Vector4f normalVec = new Vector4f(0.0f, -0.95f, 0.3f, 0.0f);
+            bucketMat.transform(normalVec);
+            scoopNormal = new Vec3(normalVec.x, normalVec.y, normalVec.z).normalize();
         }
-
-        // 3. Cutting edge center (middle tooth)
-        int centerIdx = count / 2;
-        Vec3 cuttingEdge = teethPoints.get(centerIdx);
-
-        // 4. Bucket lip (exit point for dumped granular material)
-        Vector4f lipVec = new Vector4f(0.0f, 8.0f / 16.0f, -14.0f / 16.0f, 1.0f);
-        bucketMat.transform(lipVec);
-        Vec3 lip = new Vec3(lipVec.x, lipVec.y, lipVec.z);
-
-        // 5. Direction vectors
-        // In bucket local coords, teeth point in (-Z) and downward (+Y in model space, which is -Y in world)
-        Vector4f cuttingDirVec = new Vector4f(0.0f, 0.3f, -0.95f, 0.0f);
-        bucketMat.transform(cuttingDirVec);
-        Vec3 forwardCutting = new Vec3(cuttingDirVec.x, cuttingDirVec.y, cuttingDirVec.z).normalize();
-
-        // Normal vector pointing inside bucket cavity
-        Vector4f normalVec = new Vector4f(0.0f, -0.95f, 0.3f, 0.0f);
-        bucketMat.transform(normalVec);
-        Vec3 scoopNormal = new Vec3(normalVec.x, normalVec.y, normalVec.z).normalize();
 
         // 6. Dump tilt angle: how much the opening/lip tilts downwards toward ground
         // Downward inclination: when forwardCutting points down into earth
