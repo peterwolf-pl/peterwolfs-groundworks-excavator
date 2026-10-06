@@ -150,4 +150,24 @@ public class ArmKinematicsTest {
         assertTrue(dumpPose.dumpTiltDegrees() >= ArmKinematics.DUMP_THRESHOLD_DEG,
                 "Downward tilted bucket must trigger dump. Tilt: " + dumpPose.dumpTiltDegrees());
     }
+
+    @Test
+    @DisplayName("Boom maximum elevation raises arm almost to vertical (> 80 degrees)")
+    void testBoomMaximumElevationNearVertical() {
+        Vec3 base = new Vec3(0.0D, 10.0D, 0.0D);
+
+        // Boom raised to maximum limit, stick straight
+        BucketPose highPose = ArmKinematics.computeBucketPose(
+                base, 0.0F, 0.0F, 0.0F, 0.0F,
+                ArmKinematics.BOOM_MAX,
+                0.0F,
+                0.0F
+        );
+
+        assertTrue(ArmKinematics.BOOM_MAX >= 80.0F,
+                "Maximum boom angle must be near vertical (>= 80 deg). Actual: " + ArmKinematics.BOOM_MAX);
+        double heightAboveBase = highPose.pivot().y - base.y;
+        assertTrue(heightAboveBase >= 5.0D,
+                "Boom raised to near vertical must position bucket pivot high above base. Actual: " + heightAboveBase);
+    }
 }
