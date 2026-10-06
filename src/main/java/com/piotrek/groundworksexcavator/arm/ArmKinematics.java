@@ -24,7 +24,7 @@ public final class ArmKinematics {
 
     // ── Joint Limits (degrees) ────────────────────────────────────────
     public static final float BOOM_MIN = -28.0F;
-    public static final float BOOM_MAX = 52.0F;
+    public static final float BOOM_MAX = 85.0F;
 
     public static final float STICK_MIN = -95.0F;
     public static final float STICK_MAX = 30.0F;
