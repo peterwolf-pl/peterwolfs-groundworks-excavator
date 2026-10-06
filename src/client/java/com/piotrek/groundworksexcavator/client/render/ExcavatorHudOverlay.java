@@ -56,7 +56,9 @@ public class ExcavatorHudOverlay implements HudElement {
         // Header: Mode [X] & Status
         boolean drive = ExcavatorInputHandler.isDriveMode();
         String modeStr = drive ? "§aJAZDA" : "§bRAMIĘ";
-        String status = excavator.isDigging() ? "§aKOPANIE" :
+        boolean hammer = excavator.isHammerAttachment();
+        String status = excavator.isHammering() ? "§cMŁOT" :
+                excavator.isDigging() ? "§aKOPANIE" :
                 excavator.isDumping() ? "§eWYSYP" : "§7GOTOWA";
         extractor.text(font, "§6§lKoparka §7[X]: " + modeStr, x, y, 0xFFFFFFFF, true);
         extractor.text(font, status, x + width - font.width(status) - 2, y, 0xFFFFFFFF, true);
@@ -70,14 +72,23 @@ public class ExcavatorHudOverlay implements HudElement {
         String typeLabel = isLarge ? "§e512u" : "§b256u";
 
         int bar1Y = y + 12;
-        extractor.text(font, String.format("Łyżka %s: §f%s", typeLabel, matName), x, bar1Y, 0xFFCCCCCC, true);
         int bar1BoxY = bar1Y + 9;
-        extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
-        int fillWidth = Math.round(barWidth * fillRatio);
-        if (fillWidth > 0) {
-            extractor.fill(x, bar1BoxY, x + fillWidth, bar1BoxY + 4, 0xFF00AAFF);
+        if (hammer) {
+            extractor.text(font, "Osprzęt: §cMŁOT PNEUMATYCZNY", x, bar1Y, 0xFFCCCCCC, true);
+            extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
+            if (excavator.isHammering()) {
+                extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFFFFAA00);
+            }
+            extractor.text(font, "[C] / [2x C]", x + barWidth + 4, bar1BoxY - 2, 0xFFAAAAAA, true);
+        } else {
+            extractor.text(font, String.format("Łyżka %s: §f%s", typeLabel, matName), x, bar1Y, 0xFFCCCCCC, true);
+            extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
+            int fillWidth = Math.round(barWidth * fillRatio);
+            if (fillWidth > 0) {
+                extractor.fill(x, bar1BoxY, x + fillWidth, bar1BoxY + 4, 0xFF00AAFF);
+            }
+            extractor.text(font, String.format("%.0f%%", fillRatio * 100.0F), x + barWidth + 4, bar1BoxY - 2, 0xFFAAAAAA, true);
         }
-        extractor.text(font, String.format("%.0f%%", fillRatio * 100.0F), x + barWidth + 4, bar1BoxY - 2, 0xFFAAAAAA, true);
 
         // ── 2. HYDRAULIC LOAD & OVERLOAD BAR ──
         float load = excavator.getMachineLoad();
@@ -97,9 +108,11 @@ public class ExcavatorHudOverlay implements HudElement {
                 load > 0.80F ? 0xFFFF4444 : 0xFFAAAAAA, true);
 
         // Compact control hints footer (with 2x H debug toggle hint)
-        String hint = drive
-                ? "§8[W/S] Gąsienice | [Z] Łyżka | [2x H] Kąty"
-                : "§8[W/S] Ramię | [A/D] Obrót | [2x H] Kąty";
+        String hint = hammer
+                ? "§8[C] Młot | [2x C] Ciągły | [Z] Osprzęt"
+                : drive
+                ? "§8[W/S] Gąsienice | [Z] Osprzęt | [2x H] Kąty"
+                : "§8[W/S] Ramię | [A/D] Obrót | [Z] Osprzęt";
         extractor.text(font, hint, x, y + height - 9, 0xFF888888, true);
 
         // ── 3. DETAILED DEBUG ANGLE & ROTATION HUD (TOGGLED VIA 2x H) ──
@@ -147,22 +160,30 @@ public class ExcavatorHudOverlay implements HudElement {
                 stick, ArmKinematics.STICK_MIN, ArmKinematics.STICK_MAX), x, curY, 0xFFFFFFFF, true);
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, stickFrac, 0xFF44DD66);
 
-        // ── BUCKET (Łyżka) ──
+        // ── WORK TOOL ANGLE ──
+        boolean hammer = excavator.isHammerAttachment();
         float bucket = excavator.getBucketAngle();
         float bucketFrac = fraction(bucket, ArmKinematics.BUCKET_MIN, ArmKinematics.BUCKET_MAX);
         BucketPose pose = getOrCreatePose(excavator);
         float dumpTilt = pose.dumpTiltDegrees();
 
         curY = debugY + 39;
-        extractor.text(font, String.format("§6Łyżka: §f%+.1f° §7[%+.0f°..%+.0f°]",
+        extractor.text(font, String.format("§6%s: §f%+.1f° §7[%+.0f°..%+.0f°]",
+                hammer ? "Młot" : "Łyżka",
                 bucket, ArmKinematics.BUCKET_MIN, ArmKinematics.BUCKET_MAX), x, curY, 0xFFFFFFFF, true);
         int bucketBarColor = dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? 0xFFFF8800 : 0xFFFFAA00;
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, bucketFrac, bucketBarColor);
 
         curY = debugY + 49;
-        String dumpStatus = dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? "§eWysypuje" : "§7Zamknięta";
-        extractor.text(font, String.format("§7Nachylenie zrzutu: §f%+.1f° §7(próg: 30°) §7[%s§7]",
-                dumpTilt, dumpStatus), x + 4, curY, 0xFFCCCCCC, true);
+        String dumpStatus = hammer
+                ? (excavator.isHammering() ? "§cPracuje 36%" : "§7Gotowy")
+                : (dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? "§eWysypuje" : "§7Zamknięta");
+        extractor.text(font, hammer
+                        ? String.format("§7Końcówka: §f%.2fm §7od osi mocowania §7[%s§7]",
+                                Math.abs(ArmKinematics.HAMMER_TIP_STRIKE_Z_PX) / 16.0F, dumpStatus)
+                        : String.format("§7Nachylenie zrzutu: §f%+.1f° §7(próg: 30°) §7[%s§7]",
+                                dumpTilt, dumpStatus),
+                x + 4, curY, 0xFFCCCCCC, true);
 
         // Horizontal divider
         extractor.fill(x, debugY + 61, x + debugWidth - 3, debugY + 62, 0x44FFFFFF);
@@ -181,13 +202,14 @@ public class ExcavatorHudOverlay implements HudElement {
         // Horizontal divider
         extractor.fill(x, debugY + 86, x + debugWidth - 3, debugY + 87, 0x44FFFFFF);
 
-        // ── TEETH COORDINATES & REACH ──
+        // ── TOOL TIP COORDINATES & REACH ──
         Vec3 edge = pose.cuttingEdge();
         double reach = Math.hypot(edge.x - excavator.getX(), edge.z - excavator.getZ());
         double depth = excavator.getY() - edge.y;
 
         curY = debugY + 89;
-        extractor.text(font, String.format("§6Zęby: §fX:%.1f Y:%.1f Z:%.1f",
+        extractor.text(font, String.format("§6%s: §fX:%.1f Y:%.1f Z:%.1f",
+                hammer ? "Końcówka młota" : "Zęby",
                 edge.x, edge.y, edge.z), x, curY, 0xFFDDDDDD, true);
 
         curY = debugY + 100;

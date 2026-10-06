@@ -12,7 +12,9 @@ Real excavators are operated with two primary joysticks:
 - **Right Hand**: On **`Arrow Keys`** (`↑`, `↓`, `←`, `→`) or `T`/`G`
 - **Thumb/Toggle**:
   - **`X`**: Przełącznik trybu lewej ręki: **JAZDA** (Gąsienice) $\longleftrightarrow$ **RAMIĘ** (Obrót & Przedramię)
-  - **`Z`**: Przełącznik typu łyżki: **STANDARDOWA** ($256\text{u} / 0.5\text{ m}^3$) $\longleftrightarrow$ **DUŻA MASOWA** ($512\text{u} / 1.0\text{ m}^3$, $2\times$ pojemność!)
+  - **`Z`**: Przełącznik osprzętu: **STANDARDOWA ŁYŻKA** -> **DUŻA ŁYŻKA** -> **MŁOT PNEUMATYCZNY**
+  - **`C`**: Młot chwilowo podczas trzymania klawisza
+  - **`2x C`**: Włącza lub wyłącza ciągłą pracę młota
 
 ---
 
@@ -45,9 +47,9 @@ Lewa ręka prowadzi gąsienice po terenie, a prawa ręka zachowuje pełną kontr
 
 ---
 
-## 3. ZMIANA ROZMIARU ŁYŻKI — Klawisz `Z`
+## 3. ZMIANA OSPRZĘTU - Klawisz `Z`
 
-Klawisz **`Z`** natychmiast zmienia osprzęt roboczy koparki za pomocą hydraulicznego szybkozłącza:
+Klawisz **`Z`** cyklicznie zmienia osprzęt roboczy koparki za pomocą szybkozłącza:
 
 1. **Łyżka Standardowa Skrawania (256 jednostek / $0.500\text{ m}^3$)**:
    - Szerokość 0.75m, 5 utwardzanych zębów dłutowych.
@@ -59,3 +61,13 @@ Klawisz **`Z`** natychmiast zmienia osprzęt roboczy koparki za pomocą hydrauli
    - Idealna do masowych robót ziemnych, załadunku urobku i formowania wałów.
    - Przepustowość kopania i wysypu: aż 64 jednostki/tick ($2\times$ szybszy urobek!).
    - Wygląd modelu w grze zmienia się natychmiast na potężniejszą, szerszą łyżkę.
+
+
+3. **Młot pneumatyczny do skał**:
+   - Uruchomienie chwilowe: przytrzymaj `C`.
+   - Praca ciągła: szybko naciśnij `C` dwa razy. Ponowne `2x C` wyłącza zatrzask.
+   - Każde skuteczne uderzenie kruszy 128/512 jednostek, czyli dokładnie 1/4 bloku.
+   - Kamień jest kruszony do granularnego `cobblestone` i odkładany obok kutego miejsca.
+   - Młot może przesuwać już wykuty granularny `cobblestone`, ale nigdy nie nabiera materiału do pojemnika łyżki.
+   - Aktywna praca młota powoduje dokładnie 36% obciążenia maszyny.
+   - Punkt kontaktu końcówki jest liczony z tej samej macierzy kinematycznej co model 3D, dzięki czemu miejsce uderzenia odpowiada widocznej końcówce.

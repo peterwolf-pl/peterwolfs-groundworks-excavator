@@ -68,8 +68,17 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
    - Flow rate dynamically ramps from 8 to 32 units/tick depending on inclination angle.
    - Rejected overflow remains in the bucket; zero material loss.
 
-6. **In-Cab Telemetry HUD & Diagnostics**
-   - Real-time in-cab heads-up display showing machine status, stored material, volume in $\text{m}^3$, fill bar, and joint angles.
+6. **Interchangeable Pneumatic Breaker Attachment**
+   - Press `Z` to cycle Standard Bucket -> Large Bucket -> Pneumatic Hammer.
+   - Hold `C` for momentary hammering; double-tap `C` to latch continuous operation.
+   - Each impact crushes 128 Groundworks units, exactly one quarter of a block.
+   - Stone is crushed into granular cobblestone and displaced beside the struck block instead of becoming an item drop.
+   - The hammer can continue breaking and pushing loose cobblestone, but it never stores material in the bucket container.
+   - Active hammering produces a fixed 36% machine load.
+   - The animated chisel tip and server contact point share the same calibrated arm transform.
+
+7. **In-Cab Telemetry HUD & Diagnostics**
+   - Real-time in-cab heads-up display showing machine status, stored material, volume in $\text{m}^3$, fill bar, attachment state, and joint angles.
    - `/excavator debug` diagnostic command.
 
 ---
@@ -81,6 +90,7 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
 - **Fabric API**: `>=0.160.7+26.3`
 - **Java**: `25`
 - **Required Dependency**: `Peterwolf's Groundworks` (`pw_groundworks >= 0.1.0`)
+- The hammer requires a Groundworks build with granular `cobblestone` and `stone -> cobblestone` conversion support.
 
 ---
 

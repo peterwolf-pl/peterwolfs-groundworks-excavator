@@ -182,6 +182,44 @@ def create_excavator_texture():
     img.save("src/main/resources/assets/pw_groundworks_excavator/textures/entity/excavator.png")
     print("512x512 non-overlapping master entity texture created successfully.")
 
+def create_hydraulic_hammer_texture():
+    # 64x64 dedicated atlas for the interchangeable breaker attachment.
+    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    yellow = (245, 184, 0, 255)
+    yellow_dark = (170, 120, 0, 255)
+    iron = (56, 58, 64, 255)
+    iron_light = (96, 100, 110, 255)
+    steel = (205, 212, 222, 255)
+    steel_dark = (120, 126, 136, 255)
+    black = (24, 25, 28, 255)
+
+    # Housing: UV 0,0
+    draw.rectangle([0, 0, 31, 23], fill=iron)
+    draw.rectangle([1, 1, 30, 22], outline=iron_light)
+    draw.rectangle([2, 2, 29, 6], fill=yellow)
+    draw.rectangle([2, 7, 29, 10], fill=yellow_dark)
+
+    # Quick coupler mount: UV 32,0
+    draw.rectangle([32, 0, 55, 15], fill=yellow)
+    draw.rectangle([33, 1, 54, 14], outline=yellow_dark)
+    draw.ellipse([38, 4, 47, 13], fill=black, outline=iron_light)
+
+    # Tool collar: UV 0,24
+    draw.rectangle([0, 24, 23, 39], fill=iron_light)
+    draw.rectangle([2, 26, 21, 37], fill=iron)
+
+    # Animated hardened chisel: UV 24,24
+    draw.rectangle([24, 24, 39, 55], fill=steel_dark)
+    draw.rectangle([27, 24, 36, 53], fill=steel)
+    draw.polygon([(27, 53), (36, 53), (32, 61), (31, 61)], fill=steel)
+
+    os.makedirs("src/main/resources/assets/pw_groundworks_excavator/textures/entity", exist_ok=True)
+    img.save("src/main/resources/assets/pw_groundworks_excavator/textures/entity/hydraulic_hammer.png")
+    print("64x64 hydraulic hammer texture created successfully.")
+
+
 def create_item_texture():
     # 32x32 inventory icon
     img = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
@@ -226,4 +264,5 @@ def create_item_texture():
 
 if __name__ == "__main__":
     create_excavator_texture()
+    create_hydraulic_hammer_texture()
     create_item_texture()

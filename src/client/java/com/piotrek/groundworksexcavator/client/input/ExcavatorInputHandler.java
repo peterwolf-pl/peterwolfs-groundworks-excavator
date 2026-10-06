@@ -22,8 +22,11 @@ import net.minecraft.sounds.SoundEvents;
 public final class ExcavatorInputHandler {
 
     private static boolean isDriveMode = true;
-    private static int currentBucketType = 0; // 0 = Standard (256u), 1 = Large (512u)
+    private static int currentBucketType = 0; // 0 = Standard, 1 = Large, 2 = Pneumatic hammer
     private static boolean debugHudVisible = false;
+    private static boolean hammerLatched = false;
+    private static long lastCTapTime = 0L;
+    private static boolean cKeyDownLastTick = false;
     private static long lastHTapTime = 0L;
     private static boolean hKeyDownLastTick = false;
 
@@ -35,6 +38,7 @@ public final class ExcavatorInputHandler {
     private static float lastBoom;
     private static float lastStick;
     private static float lastBucket;
+    private static boolean lastHammerActive;
     private static int keepaliveTicks;
 
     private ExcavatorInputHandler() {}
@@ -67,19 +71,56 @@ public final class ExcavatorInputHandler {
                 );
             }
 
-            // 1b. Check Bucket Switch (Key Z)
+            // 1b. Cycle attachment (Key Z): standard bucket -> large bucket -> hammer.
             while (ExcavatorKeyBindings.KEY_TOGGLE_BUCKET != null && ExcavatorKeyBindings.KEY_TOGGLE_BUCKET.consumeClick()) {
-                currentBucketType = (currentBucketType == 0) ? 1 : 0;
-                client.player.playSound(SoundEvents.ANVIL_USE, 0.7F, (currentBucketType == 1) ? 0.85F : 1.15F);
-                String msg = (currentBucketType == 1)
-                        ? "§6[Koparka] Łyżka: §e§lDUŻA MASOWA (512u / 1.0 m³ — 2x pojemność!)"
-                        : "§6[Koparka] Łyżka: §b§lSTANDARDOWA SKRAWANIA (256u / 0.5 m³)";
+                currentBucketType = (currentBucketType + 1) % 3;
+                if (currentBucketType != GroundworksExcavatorEntity.BUCKET_HAMMER) {
+                    hammerLatched = false;
+                }
+                client.player.playSound(SoundEvents.ANVIL_USE, 0.7F,
+                        currentBucketType == GroundworksExcavatorEntity.BUCKET_HAMMER ? 0.65F
+                                : currentBucketType == GroundworksExcavatorEntity.BUCKET_LARGE ? 0.85F : 1.15F);
+                String msg = switch (currentBucketType) {
+                    case GroundworksExcavatorEntity.BUCKET_LARGE ->
+                            "§6[Koparka] Osprzęt: §e§lDUŻA ŁYŻKA (512u / 1.0 m³)";
+                    case GroundworksExcavatorEntity.BUCKET_HAMMER ->
+                            "§6[Koparka] Osprzęt: §c§lMŁOT PNEUMATYCZNY §7[C / 2x C]";
+                    default ->
+                            "§6[Koparka] Osprzęt: §b§lŁYŻKA STANDARDOWA (256u / 0.5 m³)";
+                };
                 client.player.sendSystemMessage(Component.literal(msg));
             }
 
             boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
 
-            // 1c. Check Debug HUD Toggle (Quick Double-tap H)
+            // 1c. Hammer activation. Hold C for momentary work. A quick double-tap
+            // toggles continuous operation until the next double-tap or attachment change.
+            boolean cDown = currentBucketType == GroundworksExcavatorEntity.BUCKET_HAMMER
+                    && ((ExcavatorKeyBindings.KEY_HAMMER != null && ExcavatorKeyBindings.KEY_HAMMER.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_C)));
+            boolean cJustPressed = cDown && !cKeyDownLastTick;
+            cKeyDownLastTick = cDown;
+
+            if (cJustPressed) {
+                long now = System.currentTimeMillis();
+                if (now - lastCTapTime <= 400L) {
+                    hammerLatched = !hammerLatched;
+                    lastCTapTime = 0L;
+                    client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.9F,
+                            hammerLatched ? 0.75F : 1.25F);
+                    client.player.sendSystemMessage(Component.literal(
+                            hammerLatched
+                                    ? "§6[Koparka] Młot: §a§lPRACA CIĄGŁA"
+                                    : "§6[Koparka] Młot: §c§lPRACA CIĄGŁA WYŁĄCZONA"
+                    ));
+                } else {
+                    lastCTapTime = now;
+                }
+            }
+            boolean hammerActive = currentBucketType == GroundworksExcavatorEntity.BUCKET_HAMMER
+                    && (cDown || hammerLatched);
+
+            // 1d. Check Debug HUD Toggle (Quick Double-tap H)
             boolean hClick = ExcavatorKeyBindings.KEY_DEBUG_HUD != null && ExcavatorKeyBindings.KEY_DEBUG_HUD.consumeClick();
             boolean hDownDirect = inGame && InputConstants.isKeyDown(InputConstants.KEY_H);
             boolean hJustPressed = hClick || (hDownDirect && !hKeyDownLastTick);
@@ -179,11 +220,13 @@ public final class ExcavatorInputHandler {
                     || cabYaw != lastCabYaw
                     || boom != lastBoom
                     || stick != lastStick
-                    || bucket != lastBucket;
+                    || bucket != lastBucket
+                    || hammerActive != lastHammerActive;
 
             if (changed || --keepaliveTicks <= 0) {
                 ClientPlayNetworking.send(new ExcavatorInputPayload(
-                        currentMode, currentBucketType, throttle, steer, cabYaw, boom, stick, bucket
+                        currentMode, currentBucketType, throttle, steer, cabYaw, boom, stick, bucket,
+                        hammerActive
                 ));
 
                 lastMode = currentMode;
@@ -194,6 +237,7 @@ public final class ExcavatorInputHandler {
                 lastBoom = boom;
                 lastStick = stick;
                 lastBucket = bucket;
+                lastHammerActive = hammerActive;
                 keepaliveTicks = 5;
             }
         } else {
@@ -203,6 +247,10 @@ public final class ExcavatorInputHandler {
             lastBoom = 0.0F;
             lastStick = 0.0F;
             lastBucket = 0.0F;
+            lastHammerActive = false;
+            hammerLatched = false;
+            cKeyDownLastTick = false;
+            lastCTapTime = 0L;
             keepaliveTicks = 0;
             lastHTapTime = 0L;
             hKeyDownLastTick = false;

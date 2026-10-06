@@ -355,10 +355,12 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.stick.xRot = (float) Math.toRadians(state.stickAngle);
         this.bucket.xRot = (float) Math.toRadians(state.bucketAngle + 45.0F);
 
-        // Switch bucket variant based on state.bucketType
+        // Switch attachment variant based on state.bucketType.
+        // The hydraulic hammer is rendered as a dedicated calibrated model.
         boolean isLarge = state.bucketType == 1;
-        this.bucketStandard.visible = !isLarge;
-        this.bucketLarge.visible = isLarge;
+        boolean isHammer = state.bucketType == 2;
+        this.bucketStandard.visible = !isLarge && !isHammer;
+        this.bucketLarge.visible = isLarge && !isHammer;
 
         // Visual fill level and material texture matching the exact scooped granular material
         this.bucketContentsStdDirt.visible = false;
@@ -368,7 +370,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucketContentsLargeSand.visible = false;
         this.bucketContentsLargeGravel.visible = false;
 
-        if (state.fillRatio > 0.02F && state.storedUnits > 0) {
+        if (!isHammer && state.fillRatio > 0.02F && state.storedUnits > 0) {
             float yScale = Math.max(0.15F, state.fillRatio);
             ModelPart activeContents;
             if (isLarge) {

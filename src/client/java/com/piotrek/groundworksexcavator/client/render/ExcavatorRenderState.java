@@ -27,6 +27,8 @@ public class ExcavatorRenderState extends EntityRenderState {
 
     public boolean isDigging;
     public boolean isDumping;
+    public boolean isHammering;
+    public float hammerStroke;
 
     public boolean isOperating;
     public float beaconSpin;

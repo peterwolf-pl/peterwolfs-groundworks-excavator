@@ -23,6 +23,7 @@ public final class ExcavatorKeyBindings {
     public static KeyMapping KEY_CAB_RIGHT;
     public static KeyMapping KEY_STICK_OUT;
     public static KeyMapping KEY_STICK_IN;
+    public static KeyMapping KEY_HAMMER;
     public static KeyMapping KEY_DEBUG_HUD;
 
     private ExcavatorKeyBindings() {}
@@ -101,6 +102,14 @@ public final class ExcavatorKeyBindings {
                 "key.pw_groundworks_excavator.stick_in",
                 InputConstants.Type.KEYBOARD,
                 InputConstants.KEY_F,
+                CATEGORY
+        ));
+
+        // Hydraulic hammer: hold C for momentary work, double-tap C for latch.
+        KEY_HAMMER = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.pw_groundworks_excavator.hammer",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_C,
                 CATEGORY
         ));
 
