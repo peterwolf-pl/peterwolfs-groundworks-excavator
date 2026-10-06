@@ -6,6 +6,7 @@
   "description": "Functional hydraulic tracked construction excavator for Peterwolf's Groundworks.",
   "authors": ["Piotrek"],
   "license": "MIT",
+  "icon": "assets/pw_groundworks_excavator/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": ["com.piotrek.groundworksexcavator.GroundworksExcavatorMod"],
