@@ -5,6 +5,7 @@ import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
 import com.piotrek.groundworks.terrain.cell.GranularCell;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
+import com.piotrek.groundworksexcavator.automation.AutoTrenchController;
 import com.piotrek.groundworksexcavator.entity.GroundworksExcavatorEntity;
 import com.piotrek.groundworksexcavator.excavation.ArmTerrainContactController;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
@@ -191,10 +192,10 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
                 if (!player.startRiding(automatic)) {
                     throw new AssertionError("Test player could not enter automatic excavator");
                 }
-                automatic.startAutoTrench();
+                automatic.startAutoTrench(AutoTrenchController.DEFAULT_MAX_TRENCH_DEPTH, 1);
                 autoHolder[0] = automatic;
             });
-            context.waitTicks(500);
+            context.waitTicks(600);
             server.runOnServer(minecraftServer -> {
                 ServerLevel level = minecraftServer.overworld();
                 GroundworksExcavatorEntity automatic = autoHolder[0];
