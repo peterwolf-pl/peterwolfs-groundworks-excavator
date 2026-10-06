@@ -66,7 +66,7 @@ public final class AutoTrenchController {
     // 75% fill. A partially filled bucket is retried several times before a fallback dump.
     public static final float TARGET_FILL_RATIO = 0.75F;
     public static final float MIN_ACCEPTABLE_FILL_RATIO = 0.50F;
-    public static final int MAX_LOW_FILL_RETRIES = 5;
+    public static final int MAX_LOW_FILL_RETRIES = 1;
 
     private static final float ANGLE_TOLERANCE = 1.25F;
     private static final float REVERSE_THROTTLE = -0.65F;

@@ -311,7 +311,7 @@ class AutoTrenchControllerTest {
         controller.start();
 
         AutoTrenchController.Controls controls = controller.tick(new AutoTrenchController.Snapshot(
-                true, 0.0F, 24.0F, -45.0F, AutoTrenchController.HELD_BUCKET,
+                true, 0.0F, 24.0F, AutoTrenchController.CUT_STICK, AutoTrenchController.HELD_BUCKET,
                 64, 512, Vec3.ZERO, 0.0F, false, 0.0F));
 
         assertEquals(AutoTrenchController.Phase.REOPEN_AND_RESET_ARM, controller.phase(),
