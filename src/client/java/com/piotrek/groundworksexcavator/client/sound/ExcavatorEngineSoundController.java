@@ -74,8 +74,11 @@ public final class ExcavatorEngineSoundController {
             this.x = excavator.getX();
             this.y = excavator.getY() + 1.0D;
             this.z = excavator.getZ();
-            EngineSoundProfile.Mix mix = EngineSoundProfile.forTrackSpeeds(
-                    excavator.getTrackLeftSpeed(), excavator.getTrackRightSpeed());
+            EngineSoundProfile.Mix mix = EngineSoundProfile.forMachineLoad(
+                    excavator.getMachineLoad(),
+                    excavator.getTrackLeftSpeed(),
+                    excavator.getTrackRightSpeed()
+            );
             this.volume = mix.volume();
             this.pitch = mix.pitch();
         }

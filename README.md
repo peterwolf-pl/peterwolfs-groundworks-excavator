@@ -70,7 +70,8 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
 
 6. **Interchangeable Pneumatic Breaker Attachment**
    - Press `Z` to cycle Standard Bucket -> Large Bucket -> Pneumatic Hammer.
-   - Hold `C` for momentary hammering; double-tap `C` to latch continuous operation.
+   - With a bucket installed, `C` operates the excavator horn.
+   - With the pneumatic hammer installed, hold `C` for momentary hammering; double-tap `C` to latch continuous operation.
    - Each impact crushes 128 Groundworks units, exactly one quarter of a block.
    - Stone is crushed into granular cobblestone and displaced beside the struck block instead of becoming an item drop.
    - The hammer can continue breaking and pushing loose cobblestone, but it never stores material in the bucket container.
@@ -80,6 +81,19 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
 7. **In-Cab Telemetry HUD & Diagnostics**
    - Real-time in-cab heads-up display showing machine status, stored material, volume in $\text{m}^3$, fill bar, attachment state, and joint angles.
    - `/excavator debug` diagnostic command.
+
+8. **Dump-Truck AutoTrench Workflow**
+   - `/excavator autotrench dumptruck start <depth> <cycles> [expandLeftBlocks] [expandCycles]`
+   - Digging geometry and station progression stay identical to normal AutoTrench.
+   - Before unloading, the bucket is raised high and the upper structure rotates 180 degrees to dump into a Groundworks world container behind the excavator.
+   - Leaving the cab does not stop this AutoTrench mode.
+   - The excavator does not look for the truck while digging, lifting, or rotating. It first raises the loaded bucket and completes the full 180-degree rear swing.
+   - After the swing it moves the closed bucket to the dedicated rear dump check pose with the boom at +50 degrees.
+   - Only in that +50-degree pose does it check the planned dump-lip position. If a compatible dump truck is under the bucket, the bucket opens and unloading begins; otherwise the excavator pauses there with the load retained.
+   - At the end of each completed station, after the last bucket is emptied, the excavator automatically gives two short horn blasts.
+   - The rear dump truck then advances exactly one block. The excavator waits for that move to finish and only then reverses itself one block for the next trench station.
+   - If the truck is blocked and cannot finish the requested block, AutoTrench remains paused instead of reversing the excavator.
+   - A quick manual double horn press on `C` performs the same one-block advance request on the nearest compatible dump truck.
 
 ---
 

@@ -1,5 +1,8 @@
 package com.piotrek.groundworksexcavator.entity;
 
+import com.piotrek.groundworks.api.container.GranularContainerTransferApi;
+import com.piotrek.groundworks.api.container.IMobileWorldGranularContainer;
+import com.piotrek.groundworks.api.container.IWorldGranularContainer;
 import com.piotrek.groundworks.api.material.GranularMaterial;
 import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
@@ -21,6 +24,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -109,7 +113,23 @@ public class GroundworksExcavatorEntity extends Entity {
     private float inputStick;
     private float inputBucket;
     private boolean inputHammerActive;
+    private boolean hornInputLast;
+    private long lastHornTick = Long.MIN_VALUE / 4L;
+    private int fullTruckHornEntityId = -1;
+    private int autoTruckAdvanceStage;
+    private int autoTruckHornDelayTicks;
     private int inputFreshTicks;
+
+    private static final int DOUBLE_HORN_WINDOW_TICKS = 10;
+    private static final int AUTO_SECOND_HORN_DELAY_TICKS = 4;
+    private static final int AUTO_TRUCK_STAGE_IDLE = 0;
+    private static final int AUTO_TRUCK_STAGE_WAIT_SECOND_HORN = 1;
+    private static final int AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE = 2;
+    private static final int AUTO_TRUCK_STAGE_READY_TO_REVERSE = 3;
+    private static final int AUTO_TRUCK_STAGE_WAIT_REQUEST_ACCEPT = 4;
+    private static final double HORN_TRUCK_SEARCH_RADIUS = 14.0D;
+    private static final double REAR_TRUCK_MAX_DISTANCE = 10.0D;
+    private static final double REAR_TRUCK_MAX_LATERAL = 4.0D;
 
     @Nullable
     private BucketPose previousBucketPose;
@@ -231,17 +251,54 @@ public class GroundworksExcavatorEntity extends Entity {
         // movement, and material conservation remain authoritative.
         if (this.autoTrenchController.isActive()) {
             float trenchDepth = this.queryTrenchDepth(serverLevel);
-            AutoTrenchController.Controls controls = this.autoTrenchController.tick(
-                    new AutoTrenchController.Snapshot(
-                            driver != null,
-                            this.getUpperYaw(), this.getBoomAngle(),
-                            this.getStickAngle(), this.getBucketAngle(),
-                            this.getStoredUnits(), this.getBucketCapacity(),
-                            this.position(), this.getYRot(),
-                            this.cabinBlockedLastTick, trenchDepth));
+
+            AutoTrenchController.Snapshot snapshot = new AutoTrenchController.Snapshot(
+                    driver != null,
+                    this.getUpperYaw(), this.getBoomAngle(),
+                    this.getStickAngle(), this.getBucketAngle(),
+                    this.getStoredUnits(), this.getBucketCapacity(),
+                    this.position(), this.getYRot(),
+                    this.cabinBlockedLastTick, trenchDepth);
+
+            AutoTrenchController.Controls controls;
+            if (this.autoTrenchController.isDumpTruckMode()
+                    && this.autoTrenchController.phase() == AutoTrenchController.Phase.RESET_AND_REVERSE) {
+                IMobileWorldGranularContainer rearTruck =
+                        this.findRearMobileContainer(serverLevel);
+                controls = this.tickAutomaticTruckAdvanceBeforeReverse(
+                        serverLevel,
+                        snapshot,
+                        rearTruck
+                );
+            } else {
+                this.resetAutomaticTruckAdvanceSequence();
+
+                IMobileWorldGranularContainer dumpReceiver =
+                        this.autoTrenchController.isDumpTruckMode()
+                                && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT
+                                ? this.findDumpTruckUnderPlannedRearDumpLip(serverLevel)
+                                : null;
+
+                if (dumpReceiver != null) {
+                    this.updateFullTruckSignal(serverLevel, dumpReceiver);
+                }
+
+                boolean dumpTruckAtDumpPoint =
+                        !this.autoTrenchController.isDumpTruckMode()
+                                || this.autoTrenchController.phase() != AutoTrenchController.Phase.DUMP_RIGHT
+                                || (dumpReceiver != null && !this.isReceiverFull(dumpReceiver));
+
+                controls = this.autoTrenchController.tick(
+                        snapshot,
+                        dumpTruckAtDumpPoint
+                );
+            }
+
             this.setControlInputs(
                     controls.throttle(), controls.steer(), controls.cabYaw(),
                     controls.boom(), controls.stick(), controls.bucket());
+        } else {
+            this.resetAutomaticTruckAdvanceSequence();
         }
 
         // 1. Process driver input decay
@@ -459,11 +516,36 @@ public class GroundworksExcavatorEntity extends Entity {
 
             // AutoTrench owns its dump timing, so retry/penetration poses cannot
             // spill a partial load merely because the bucket crosses the dump angle.
-            BucketDumpingController.DumpTickResult dumpResult =
-                    this.autoTrenchController.allowsBucketDumping()
-                            ? BucketDumpingController.tick(
-                                    serverLevel, this, this.bucket, this.currentBucketPose)
-                            : BucketDumpingController.DumpTickResult.NONE;
+            // DumpTruck mode qualifies the receiver from the fixed +50-degree,
+            // rear-facing, closed-bucket check pose. Once qualified, that receiver
+            // remains the transfer target while the bucket lip moves as it opens.
+            BucketDumpingController.DumpTickResult dumpResult;
+            if (!this.autoTrenchController.allowsBucketDumping()) {
+                dumpResult = BucketDumpingController.DumpTickResult.NONE;
+            } else if (this.autoTrenchController.isDumpTruckMode()) {
+                IMobileWorldGranularContainer dumpReceiver =
+                        this.findDumpTruckUnderPlannedRearDumpLip(serverLevel);
+                dumpResult = dumpReceiver != null && !this.isReceiverFull(dumpReceiver)
+                        ? BucketDumpingController.tickToReceiver(
+                                serverLevel,
+                                this,
+                                this.bucket,
+                                this.currentBucketPose,
+                                dumpReceiver
+                        )
+                        : BucketDumpingController.DumpTickResult.NONE;
+
+                if (dumpReceiver != null) {
+                    this.updateFullTruckSignal(serverLevel, dumpReceiver);
+                }
+            } else {
+                dumpResult = BucketDumpingController.tick(
+                        serverLevel,
+                        this,
+                        this.bucket,
+                        this.currentBucketPose
+                );
+            }
 
             this.lastDepositedUnits = dumpResult.unitsDeposited();
             this.entityData.set(IS_DUMPING, dumpResult.dumping());
@@ -502,6 +584,267 @@ public class GroundworksExcavatorEntity extends Entity {
         this.inputHammerActive = active && this.isHammerAttachment();
     }
 
+    /**
+     * C is a horn while a digging bucket is installed. The hydraulic hammer keeps
+     * its existing C behavior when the hammer attachment is selected.
+     */
+    public void setHornInput(boolean active) {
+        if (this.isHammerAttachment()) {
+            this.hornInputLast = false;
+            return;
+        }
+
+        boolean risingEdge = active && !this.hornInputLast;
+        this.hornInputLast = active;
+
+        if (risingEdge && !this.level().isClientSide()) {
+            this.honkAndDispatchNearestTruck((ServerLevel) this.level());
+        }
+    }
+
+    private void honkAndDispatchNearestTruck(ServerLevel level) {
+        this.playHorn(level);
+
+        long now = level.getGameTime();
+        if (now - this.lastHornTick <= DOUBLE_HORN_WINDOW_TICKS) {
+            IMobileWorldGranularContainer nearest = this.findNearestMobileContainer(
+                    level,
+                    HORN_TRUCK_SEARCH_RADIUS
+            );
+            if (nearest != null) {
+                nearest.requestAdvance(1.0D);
+            }
+            this.lastHornTick = Long.MIN_VALUE / 4L;
+        } else {
+            this.lastHornTick = now;
+        }
+    }
+
+    private void playHorn(ServerLevel level) {
+        level.playSound(
+                null,
+                getX(),
+                getY() + 1.4D,
+                getZ(),
+                GroundworksExcavatorMod.TRUCK_HORN_SHORT,
+                SoundSource.BLOCKS,
+                1.15F,
+                1.0F
+        );
+    }
+
+    private void playLongHorn(ServerLevel level) {
+        level.playSound(
+                null,
+                getX(),
+                getY() + 1.4D,
+                getZ(),
+                GroundworksExcavatorMod.TRUCK_HORN_LONG,
+                SoundSource.BLOCKS,
+                1.25F,
+                1.0F
+        );
+    }
+
+    private boolean isReceiverFull(IWorldGranularContainer receiver) {
+        return receiver != null
+                && receiver.capacity() > 0
+                && receiver.storedUnits() >= receiver.capacity();
+    }
+
+    private void updateFullTruckSignal(
+            ServerLevel level,
+            IMobileWorldGranularContainer receiver
+    ) {
+        if (!(receiver instanceof Entity receiverEntity)) {
+            return;
+        }
+
+        int receiverId = receiverEntity.getId();
+        if (this.isReceiverFull(receiver)) {
+            if (this.fullTruckHornEntityId != receiverId) {
+                this.fullTruckHornEntityId = receiverId;
+                this.playLongHorn(level);
+            }
+        } else if (this.fullTruckHornEntityId == receiverId) {
+            this.fullTruckHornEntityId = -1;
+        }
+    }
+
+    /**
+     * End-of-station handshake for DumpTruck AutoTrench:
+     * two short horn blasts -> truck advances exactly one block -> excavator reverses.
+     */
+    private AutoTrenchController.Controls tickAutomaticTruckAdvanceBeforeReverse(
+            ServerLevel level,
+            AutoTrenchController.Snapshot snapshot,
+            @Nullable IMobileWorldGranularContainer rearTruck
+    ) {
+        if (rearTruck == null) {
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_IDLE) {
+            this.playHorn(level);
+            this.autoTruckHornDelayTicks = AUTO_SECOND_HORN_DELAY_TICKS;
+            this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_SECOND_HORN;
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_WAIT_SECOND_HORN) {
+            if (--this.autoTruckHornDelayTicks > 0) {
+                return AutoTrenchController.Controls.STOPPED;
+            }
+
+            this.playHorn(level);
+            if (rearTruck.requestAdvance(1.0D) || rearTruck.isAdvanceInProgress()) {
+                this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE;
+            } else {
+                // The signal has already been given. Do not spam the horn if the
+                // receiver is temporarily unable to accept the move request.
+                this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_REQUEST_ACCEPT;
+            }
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_WAIT_REQUEST_ACCEPT) {
+            if (rearTruck.requestAdvance(1.0D) || rearTruck.isAdvanceInProgress()) {
+                this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE;
+            }
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE) {
+            if (rearTruck.isAdvanceInProgress()) {
+                return AutoTrenchController.Controls.STOPPED;
+            }
+
+            // One settle tick after the truck stops prevents both machines from
+            // starting their movement in the same server tick.
+            this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_READY_TO_REVERSE;
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        AutoTrenchController.Controls controls = this.autoTrenchController.tick(
+                snapshot,
+                true
+        );
+
+        if (this.autoTrenchController.phase() != AutoTrenchController.Phase.RESET_AND_REVERSE) {
+            this.resetAutomaticTruckAdvanceSequence();
+        }
+
+        return controls;
+    }
+
+    private void resetAutomaticTruckAdvanceSequence() {
+        this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_IDLE;
+        this.autoTruckHornDelayTicks = 0;
+    }
+
+    @Nullable
+    private IMobileWorldGranularContainer findDumpTruckUnderPlannedRearDumpLip(
+            ServerLevel level
+    ) {
+        BucketPose plannedDumpPose = ArmKinematics.computeBucketPose(
+                this.position(),
+                this.getYRot(),
+                this.getVehiclePitch(),
+                this.getVehicleRoll(),
+                AutoTrenchController.REAR_DUMP_YAW,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
+                AutoTrenchController.DUMP_STICK,
+                AutoTrenchController.HELD_BUCKET,
+                this.getBucketType()
+        );
+
+        Vec3 plannedLip = plannedDumpPose.lip();
+        IWorldGranularContainer receiver = GranularContainerTransferApi.findReceiver(
+                level,
+                plannedLip,
+                this,
+                8.0D
+        );
+
+        return receiver instanceof IMobileWorldGranularContainer mobile
+                ? mobile
+                : null;
+    }
+
+    @Nullable
+    private IMobileWorldGranularContainer findNearestMobileContainer(
+            ServerLevel level,
+            double radius
+    ) {
+        AABB area = this.getBoundingBox().inflate(radius, 4.0D, radius);
+        Entity nearestEntity = null;
+        double nearestDistance = Double.MAX_VALUE;
+
+        for (Entity candidate : level.getEntitiesOfClass(
+                Entity.class,
+                area,
+                entity -> entity != this
+                        && entity instanceof IMobileWorldGranularContainer
+        )) {
+            double distance = candidate.distanceToSqr(getX(), getY(), getZ());
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestEntity = candidate;
+            }
+        }
+
+        return nearestEntity instanceof IMobileWorldGranularContainer mobile
+                ? mobile
+                : null;
+    }
+
+    @Nullable
+    private IMobileWorldGranularContainer findRearMobileContainer(ServerLevel level) {
+        double yawRad = Math.toRadians(this.getYRot());
+        Vec3 forward = new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
+        Vec3 rear = forward.scale(-1.0D);
+        Vec3 right = new Vec3(Math.cos(yawRad), 0.0D, Math.sin(yawRad));
+
+        AABB area = this.getBoundingBox().inflate(
+                REAR_TRUCK_MAX_DISTANCE,
+                4.0D,
+                REAR_TRUCK_MAX_DISTANCE
+        );
+
+        Entity nearestEntity = null;
+        double nearestDistance = Double.MAX_VALUE;
+
+        for (Entity candidate : level.getEntitiesOfClass(
+                Entity.class,
+                area,
+                entity -> entity != this
+                        && entity instanceof IMobileWorldGranularContainer
+        )) {
+            Vec3 delta = candidate.position().subtract(this.position());
+            double behind = delta.dot(rear);
+            double lateral = Math.abs(delta.dot(right));
+
+            if (behind >= 1.5D
+                    && behind <= REAR_TRUCK_MAX_DISTANCE
+                    && lateral <= REAR_TRUCK_MAX_LATERAL
+                    && Math.abs(delta.y) <= 2.5D) {
+                double distance = candidate.distanceToSqr(getX(), getY(), getZ());
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestEntity = candidate;
+                }
+            }
+        }
+
+        return nearestEntity instanceof IMobileWorldGranularContainer mobile
+                ? mobile
+                : null;
+    }
+
+    private boolean hasRearDumpTruck(ServerLevel level) {
+        return this.findRearMobileContainer(level) != null;
+    }
+
     public void startAutoTrench() {
         startAutoTrench(
                 AutoTrenchController.DEFAULT_MAX_TRENCH_DEPTH,
@@ -528,14 +871,40 @@ public class GroundworksExcavatorEntity extends Entity {
         this.autoTrenchController.start(depthBlocks, cutsCenter, expandLeftBlocks, cutsLeft);
     }
 
+    public void startAutoTrenchDumpTruck(
+            float depthBlocks,
+            int cutsCenter,
+            float expandLeftBlocks,
+            int cutsLeft
+    ) {
+        if (this.level().isClientSide()) return;
+        this.setBucketType(BUCKET_LARGE);
+        this.setControlMode(MODE_EXCAVATOR);
+        this.cabinBlockedLastTick = false;
+        this.fullTruckHornEntityId = -1;
+        this.resetAutomaticTruckAdvanceSequence();
+        this.autoTrenchController.startWithDumpTruck(
+                depthBlocks,
+                cutsCenter,
+                expandLeftBlocks,
+                cutsLeft
+        );
+    }
+
     public void stopAutoTrench() {
         this.cabinBlockedLastTick = false;
+        this.fullTruckHornEntityId = -1;
+        this.resetAutomaticTruckAdvanceSequence();
         this.autoTrenchController.stop();
         this.setControlInputs(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
     }
 
     public boolean isAutoTrenchActive() {
         return this.autoTrenchController.isActive();
+    }
+
+    public boolean isAutoTrenchDumpTruckMode() {
+        return this.autoTrenchController.isDumpTruckMode();
     }
 
     public AutoTrenchController.Phase getAutoTrenchPhase() {

@@ -52,6 +52,18 @@ public class GroundworksExcavatorMod implements ModInitializer {
             SoundEvent.createFixedRangeEvent(id("engine_loop"), 48.0F)
     );
 
+    public static final SoundEvent TRUCK_HORN_SHORT = Registry.register(
+            BuiltInRegistries.SOUND_EVENT,
+            id("truck_horn_short"),
+            SoundEvent.createFixedRangeEvent(id("truck_horn_short"), 64.0F)
+    );
+
+    public static final SoundEvent TRUCK_HORN_LONG = Registry.register(
+            BuiltInRegistries.SOUND_EVENT,
+            id("truck_horn_long"),
+            SoundEvent.createFixedRangeEvent(id("truck_horn_long"), 72.0F)
+    );
+
     // ── Item Registration ────────────────────────────────────────────
     public static final ResourceKey<Item> EXCAVATOR_ITEM_KEY =
             ResourceKey.create(Registries.ITEM, id("excavator"));
@@ -93,6 +105,7 @@ public class GroundworksExcavatorMod implements ModInitializer {
                                     payload.bucketInput()
                             );
                             excavator.setHammerInput(payload.hammerActive());
+                            excavator.setHornInput(payload.hornActive());
                         }
                     });
                 }
