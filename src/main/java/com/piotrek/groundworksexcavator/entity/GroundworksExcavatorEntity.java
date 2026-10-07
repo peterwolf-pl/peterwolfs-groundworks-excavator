@@ -1,6 +1,8 @@
 package com.piotrek.groundworksexcavator.entity;
 
+import com.piotrek.groundworks.api.container.GranularContainerTransferApi;
 import com.piotrek.groundworks.api.container.IMobileWorldGranularContainer;
+import com.piotrek.groundworks.api.container.IWorldGranularContainer;
 import com.piotrek.groundworks.api.material.GranularMaterial;
 import com.piotrek.groundworks.api.material.GranularMaterialRegistry;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
@@ -249,11 +251,6 @@ public class GroundworksExcavatorEntity extends Entity {
         // movement, and material conservation remain authoritative.
         if (this.autoTrenchController.isActive()) {
             float trenchDepth = this.queryTrenchDepth(serverLevel);
-            IMobileWorldGranularContainer rearTruck = this.autoTrenchController.isDumpTruckMode()
-                    ? this.findRearMobileContainer(serverLevel)
-                    : null;
-            boolean rearDumpTruckPresent = !this.autoTrenchController.isDumpTruckMode()
-                    || rearTruck != null;
 
             AutoTrenchController.Snapshot snapshot = new AutoTrenchController.Snapshot(
                     driver != null,
@@ -266,6 +263,8 @@ public class GroundworksExcavatorEntity extends Entity {
             AutoTrenchController.Controls controls;
             if (this.autoTrenchController.isDumpTruckMode()
                     && this.autoTrenchController.phase() == AutoTrenchController.Phase.RESET_AND_REVERSE) {
+                IMobileWorldGranularContainer rearTruck =
+                        this.findRearMobileContainer(serverLevel);
                 controls = this.tickAutomaticTruckAdvanceBeforeReverse(
                         serverLevel,
                         snapshot,
@@ -273,9 +272,15 @@ public class GroundworksExcavatorEntity extends Entity {
                 );
             } else {
                 this.resetAutomaticTruckAdvanceSequence();
+
+                boolean dumpTruckAtDumpPoint =
+                        !this.autoTrenchController.isDumpTruckMode()
+                                || this.autoTrenchController.phase() != AutoTrenchController.Phase.DUMP_RIGHT
+                                || this.hasDumpTruckUnderPlannedRearDumpLip(serverLevel);
+
                 controls = this.autoTrenchController.tick(
                         snapshot,
-                        rearDumpTruckPresent
+                        dumpTruckAtDumpPoint
                 );
             }
 
@@ -663,6 +668,30 @@ public class GroundworksExcavatorEntity extends Entity {
     private void resetAutomaticTruckAdvanceSequence() {
         this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_IDLE;
         this.autoTruckHornDelayTicks = 0;
+    }
+
+    private boolean hasDumpTruckUnderPlannedRearDumpLip(ServerLevel level) {
+        BucketPose plannedDumpPose = ArmKinematics.computeBucketPose(
+                this.position(),
+                this.getYRot(),
+                this.getVehiclePitch(),
+                this.getVehicleRoll(),
+                AutoTrenchController.REAR_DUMP_YAW,
+                AutoTrenchController.DUMP_BOOM,
+                AutoTrenchController.DUMP_STICK,
+                AutoTrenchController.DUMP_BUCKET,
+                this.getBucketType()
+        );
+
+        Vec3 plannedLip = plannedDumpPose.lip();
+        IWorldGranularContainer receiver = GranularContainerTransferApi.findReceiver(
+                level,
+                plannedLip,
+                this,
+                4.0D
+        );
+
+        return receiver instanceof IMobileWorldGranularContainer;
     }
 
     @Nullable
