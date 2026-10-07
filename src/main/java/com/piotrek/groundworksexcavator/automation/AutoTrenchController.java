@@ -30,6 +30,7 @@ public final class AutoTrenchController {
     // Dump-truck mode first lifts the closed bucket high, rotates 180 degrees,
     // then moves to a dedicated +50-degree receiver-check pose before opening.
     public static final float REAR_TRANSIT_BOOM = SAFE_BOOM;
+    public static final float REAR_MAX_TRANSIT_BOOM = 55.0F;
     public static final float REAR_DUMP_CHECK_BOOM = 50.0F;
 
     public static final float OPEN_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F - otwarcie łyżki na maxa!
@@ -596,7 +597,9 @@ public final class AutoTrenchController {
         }
 
         handleRotationObstacle(state, dumpYaw);
-        float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
+        float targetBoom = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                ? Math.min(REAR_MAX_TRANSIT_BOOM, SAFE_BOOM + swingObstacleBoomBoost)
+                : Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
 
         // Sekwencja podnoszenia i obrotu (2-etapowa, aby nic się nie wysypało):
         // 1. Dociągamy przedramię do wewnątrz (state.stick() zmierza do CUT_STICK / TUCKED_STICK),
@@ -636,15 +639,17 @@ public final class AutoTrenchController {
             // 2. lower/move the closed bucket into the dedicated +50-degree check pose,
             // 3. only there verify that a compatible truck is under the lip,
             // 4. keep exactly that pose and open the bucket only after the receiver exists.
-            boolean atTruckCheckPose = atTarget(
+            boolean armAtTruckCheckPose = atArmTarget(
                     state,
                     REAR_DUMP_YAW,
                     REAR_DUMP_CHECK_BOOM,
-                    DUMP_STICK,
-                    HELD_BUCKET
+                    DUMP_STICK
             );
 
-            if (!atTruckCheckPose) {
+            if (!armAtTruckCheckPose) {
+                // Move into the +50-degree receiver-check pose while keeping
+                // the load secured. Bucket angle is intentionally controlled
+                // only during this approach.
                 return target(
                         state,
                         REAR_DUMP_YAW,
@@ -655,6 +660,10 @@ public final class AutoTrenchController {
                 );
             }
 
+            // Once the arm is at the check pose, never require HELD_BUCKET again.
+            // Requiring a closed bucket here caused a one-tick open/close loop:
+            // as soon as opening began the next tick failed the pose test and
+            // commanded the bucket closed again.
             if (!dumpTruckAtDumpPointThisTick) {
                 return Controls.STOPPED;
             }
