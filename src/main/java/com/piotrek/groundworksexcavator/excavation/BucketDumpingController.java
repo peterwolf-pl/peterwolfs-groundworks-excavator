@@ -187,11 +187,11 @@ public final class BucketDumpingController {
                 1.0F
         );
         int flowRate = Math.round(Mth.lerp(progress, (float) minFlow, (float) maxFlow));
-        int receiverRoom = Math.max(0, receiver.capacity() - receiver.storedUnits());
-        int toDump = Math.min(
-                Math.min(bucket.storedUnits(), flowRate),
-                receiverRoom
-        );
+
+        // Do not pre-clamp to receiverRoom here. The receiver owns its overflow
+        // semantics. A dump truck accepts material up to the visual bed-brim
+        // threshold and can spill only the excess over its physical side walls.
+        int toDump = Math.min(bucket.storedUnits(), flowRate);
 
         if (toDump <= 0) {
             return DumpTickResult.NONE;
