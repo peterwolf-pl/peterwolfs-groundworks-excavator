@@ -80,12 +80,6 @@ public final class BucketDumpingController {
 
         // Calculate flow rate based on how steep the bucket is tilted
         // Standard: 8..32 units/tick. Large (512u): 24..96 units/tick
-        // Fleet mode uses the live open-bucket lip position. Do not transfer any
-        // material while the bucket is still opening outside the receiver footprint.
-        if (!allowReceiverOverflow && !receiver.canReceiveAt(currentPose.lip())) {
-            return DumpTickResult.NONE;
-        }
-
         int minFlow = (bucket.capacity() >= 512) ? MIN_FLOW_RATE * 3 : MIN_FLOW_RATE;
         int maxFlow = (bucket.capacity() >= 512) ? MAX_FLOW_RATE * 3 : MAX_FLOW_RATE;
         float progress = Mth.clamp((tilt - ArmKinematics.DUMP_THRESHOLD_DEG) / 45.0F, 0.0F, 1.0F);
@@ -208,6 +202,14 @@ public final class BucketDumpingController {
 
         float tilt = currentPose.dumpTiltDegrees();
         if (tilt < ArmKinematics.DUMP_THRESHOLD_DEG) {
+            return DumpTickResult.NONE;
+        }
+
+        // Fleet mode validates the live release point while the bucket opens.
+        // Keep the load in the bucket until the current lip actually projects
+        // inside the selected truck bed. The legacy receiver mode keeps its
+        // original stable-check behavior.
+        if (!allowReceiverOverflow && !receiver.canReceiveAt(currentPose.lip())) {
             return DumpTickResult.NONE;
         }
 
