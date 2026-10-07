@@ -199,7 +199,7 @@ public final class ExcavatorCommand {
             return excavator;
         }
 
-        GroundworksExcavatorEntity nearest = player.serverLevel().getEntitiesOfClass(
+        GroundworksExcavatorEntity nearest = source.getLevel().getEntitiesOfClass(
                         GroundworksExcavatorEntity.class,
                         player.getBoundingBox().inflate(20.0D),
                         GroundworksExcavatorEntity::isAutoTrenchActive
