@@ -700,9 +700,9 @@ public class GroundworksExcavatorEntity extends Entity {
                 this.getVehiclePitch(),
                 this.getVehicleRoll(),
                 AutoTrenchController.REAR_DUMP_YAW,
-                AutoTrenchController.DUMP_BOOM,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
                 AutoTrenchController.DUMP_STICK,
-                AutoTrenchController.DUMP_BUCKET,
+                AutoTrenchController.HELD_BUCKET,
                 this.getBucketType()
         );
 
