@@ -39,6 +39,7 @@ public final class ExcavatorInputHandler {
     private static float lastStick;
     private static float lastBucket;
     private static boolean lastHammerActive;
+    private static boolean lastHornActive;
     private static int keepaliveTicks;
 
     private ExcavatorInputHandler() {}
@@ -93,11 +94,20 @@ public final class ExcavatorInputHandler {
 
             boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
 
-            // 1c. Hammer activation. Hold C for momentary work. A quick double-tap
+            // 1c. Key C is context-sensitive:
+            // - digging bucket installed: horn
+            // - hydraulic hammer installed: existing hammer control
+            boolean cRawDown = (ExcavatorKeyBindings.KEY_HAMMER != null
+                    && ExcavatorKeyBindings.KEY_HAMMER.isDown())
+                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_C));
+
+            boolean hornActive = currentBucketType != GroundworksExcavatorEntity.BUCKET_HAMMER
+                    && cRawDown;
+
+            // Hammer activation. Hold C for momentary work. A quick double-tap
             // toggles continuous operation until the next double-tap or attachment change.
             boolean cDown = currentBucketType == GroundworksExcavatorEntity.BUCKET_HAMMER
-                    && ((ExcavatorKeyBindings.KEY_HAMMER != null && ExcavatorKeyBindings.KEY_HAMMER.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_C)));
+                    && cRawDown;
             boolean cJustPressed = cDown && !cKeyDownLastTick;
             cKeyDownLastTick = cDown;
 
@@ -221,12 +231,13 @@ public final class ExcavatorInputHandler {
                     || boom != lastBoom
                     || stick != lastStick
                     || bucket != lastBucket
-                    || hammerActive != lastHammerActive;
+                    || hammerActive != lastHammerActive
+                    || hornActive != lastHornActive;
 
             if (changed || --keepaliveTicks <= 0) {
                 ClientPlayNetworking.send(new ExcavatorInputPayload(
                         currentMode, currentBucketType, throttle, steer, cabYaw, boom, stick, bucket,
-                        hammerActive
+                        hammerActive, hornActive
                 ));
 
                 lastMode = currentMode;
@@ -238,6 +249,7 @@ public final class ExcavatorInputHandler {
                 lastStick = stick;
                 lastBucket = bucket;
                 lastHammerActive = hammerActive;
+                lastHornActive = hornActive;
                 keepaliveTicks = 5;
             }
         } else {
@@ -248,6 +260,7 @@ public final class ExcavatorInputHandler {
             lastStick = 0.0F;
             lastBucket = 0.0F;
             lastHammerActive = false;
+            lastHornActive = false;
             hammerLatched = false;
             cKeyDownLastTick = false;
             lastCTapTime = 0L;

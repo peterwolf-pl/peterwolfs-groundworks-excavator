@@ -155,6 +155,78 @@ public final class BucketDumpingController {
         return DumpTickResult.NONE;
     }
 
+    /**
+     * Dumps only into a receiver that was already validated at a stable machine
+     * check point. The actual bucket lip may move while the bucket opens, so the
+     * receiver geometry must not be re-qualified from the moving lip every tick.
+     *
+     * <p>No terrain fallback is allowed here. If the receiver disappears or
+     * rejects material, the load stays in the bucket.</p>
+     */
+    public static DumpTickResult tickToReceiver(
+            ServerLevel level,
+            @Nullable Entity source,
+            BucketMaterialContainer bucket,
+            BucketPose currentPose,
+            IWorldGranularContainer receiver
+    ) {
+        if (receiver == null || bucket.isEmpty() || currentPose == null) {
+            return DumpTickResult.NONE;
+        }
+
+        float tilt = currentPose.dumpTiltDegrees();
+        if (tilt < ArmKinematics.DUMP_THRESHOLD_DEG) {
+            return DumpTickResult.NONE;
+        }
+
+        int minFlow = (bucket.capacity() >= 512) ? MIN_FLOW_RATE * 3 : MIN_FLOW_RATE;
+        int maxFlow = (bucket.capacity() >= 512) ? MAX_FLOW_RATE * 3 : MAX_FLOW_RATE;
+        float progress = Mth.clamp(
+                (tilt - ArmKinematics.DUMP_THRESHOLD_DEG) / 45.0F,
+                0.0F,
+                1.0F
+        );
+        int flowRate = Math.round(Mth.lerp(progress, (float) minFlow, (float) maxFlow));
+
+        // Do not pre-clamp to receiverRoom here. The receiver owns its overflow
+        // semantics. A dump truck accepts material up to the visual bed-brim
+        // threshold and can spill only the excess over its physical side walls.
+        int toDump = Math.min(bucket.storedUnits(), flowRate);
+
+        if (toDump <= 0) {
+            return DumpTickResult.NONE;
+        }
+
+        Vec3 lip = currentPose.lip();
+        GranularMaterial material = bucket.storedMaterial();
+        int consumed = receiver.receiveMaterialAt(
+                level,
+                lip,
+                material,
+                toDump
+        );
+
+        consumed = Math.clamp(consumed, 0, toDump);
+        if (consumed <= 0) {
+            return DumpTickResult.NONE;
+        }
+
+        int extracted = bucket.extractMaterial(consumed);
+        spawnContainerTransferParticles(
+                level,
+                lip,
+                material,
+                extracted
+        );
+
+        return new DumpTickResult(
+                extracted,
+                material,
+                lip,
+                true
+        );
+    }
+
     @Nullable
     private static BlockPos findDepositSurface(ServerLevel level, Vec3 lip, GranularMaterial material) {
         BlockPos start = BlockPos.containing(lip.x, lip.y, lip.z);

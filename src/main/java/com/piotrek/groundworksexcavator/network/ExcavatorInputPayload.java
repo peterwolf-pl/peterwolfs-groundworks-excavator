@@ -25,7 +25,8 @@ public record ExcavatorInputPayload(
         float boomInput,
         float stickInput,
         float bucketInput,
-        boolean hammerActive
+        boolean hammerActive,
+        boolean hornActive
 ) implements CustomPacketPayload {
 
     public static final Type<ExcavatorInputPayload> TYPE = new Type<>(GroundworksExcavatorMod.id("excavator_input"));
@@ -42,6 +43,7 @@ public record ExcavatorInputPayload(
                     buffer.readFloat(),
                     buffer.readFloat(),
                     buffer.readFloat(),
+                    buffer.readBoolean(),
                     buffer.readBoolean()
             );
         }
@@ -57,6 +59,7 @@ public record ExcavatorInputPayload(
             buffer.writeFloat(payload.stickInput);
             buffer.writeFloat(payload.bucketInput);
             buffer.writeBoolean(payload.hammerActive);
+            buffer.writeBoolean(payload.hornActive);
         }
     };
 
