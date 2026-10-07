@@ -24,7 +24,6 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -627,10 +626,10 @@ public class GroundworksExcavatorEntity extends Entity {
                 getX(),
                 getY() + 1.4D,
                 getZ(),
-                SoundEvents.RAID_HORN,
+                GroundworksExcavatorMod.TRUCK_HORN_SHORT,
                 SoundSource.BLOCKS,
+                1.15F,
                 1.0F,
-                1.55F,
                 level.getRandom().nextLong()
         );
     }
@@ -641,10 +640,10 @@ public class GroundworksExcavatorEntity extends Entity {
                 getX(),
                 getY() + 1.4D,
                 getZ(),
-                SoundEvents.RAID_HORN,
+                GroundworksExcavatorMod.TRUCK_HORN_LONG,
                 SoundSource.BLOCKS,
                 1.25F,
-                0.82F,
+                1.0F,
                 level.getRandom().nextLong()
         );
     }
