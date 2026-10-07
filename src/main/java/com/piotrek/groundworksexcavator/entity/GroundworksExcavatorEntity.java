@@ -712,7 +712,7 @@ public class GroundworksExcavatorEntity extends Entity {
                 level,
                 plannedLip,
                 this,
-                4.0D
+                8.0D
         );
 
         return receiver instanceof IMobileWorldGranularContainer mobile
