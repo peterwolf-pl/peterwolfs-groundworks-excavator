@@ -616,26 +616,36 @@ class AutoTrenchControllerTest {
     }
 
     @Test
-    void dumpTruckModeSurvivesCabExitAndPausesWithoutRearTruck() {
+    void dumpTruckModeStartsWithoutTruckButWaitsBeforeRearSwing() {
         AutoTrenchController controller = new AutoTrenchController();
         controller.startWithDumpTruck(1.0F, 2, 0.0F, 0);
 
-        AutoTrenchController.Controls paused = controller.tick(snapshot(
+        AutoTrenchController.Controls digging = controller.tick(snapshot(
                 false, 0.0F, AutoTrenchController.SAFE_BOOM,
                 AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
                 0, Vec3.ZERO, 0.0F), false);
 
         assertTrue(controller.isActive(), "Leaving the cab must not stop dump-truck AutoTrench");
         assertTrue(controller.isDumpTruckMode());
-        assertEquals(AutoTrenchController.Controls.STOPPED, paused,
-                "Missing rear dump truck must pause without advancing the state machine");
+        assertNotEquals(AutoTrenchController.Controls.STOPPED, digging,
+                "Missing rear truck must not prevent the excavator from starting the digging cycle");
 
-        controller.tick(snapshot(
-                false, 0.0F, AutoTrenchController.SAFE_BOOM,
+        controller.setPhaseForTest(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT);
+        AutoTrenchController.Controls waiting = controller.tick(snapshot(
+                false, 0.0F, 22.0F,
                 AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
-                0, Vec3.ZERO, 0.0F), true);
+                400, Vec3.ZERO, 0.0F), false);
 
-        assertTrue(controller.isActive(), "Returning a rear dump truck resumes unattended automation");
+        assertEquals(AutoTrenchController.Controls.STOPPED, waiting,
+                "Loaded bucket must wait before the rear swing until a dump truck is present");
+
+        AutoTrenchController.Controls resumed = controller.tick(snapshot(
+                false, 0.0F, AutoTrenchController.REAR_TRANSIT_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                400, Vec3.ZERO, 0.0F), true);
+
+        assertNotEquals(AutoTrenchController.Controls.STOPPED, resumed,
+                "Returning the rear dump truck must resume unattended automation");
     }
 
     @Test
