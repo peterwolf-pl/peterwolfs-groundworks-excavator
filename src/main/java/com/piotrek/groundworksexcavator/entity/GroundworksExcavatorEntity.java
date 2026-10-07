@@ -621,7 +621,7 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     private void playHorn(ServerLevel level) {
-        level.playSeededSound(
+        level.playSound(
                 null,
                 getX(),
                 getY() + 1.4D,
@@ -629,13 +629,12 @@ public class GroundworksExcavatorEntity extends Entity {
                 GroundworksExcavatorMod.TRUCK_HORN_SHORT,
                 SoundSource.BLOCKS,
                 1.15F,
-                1.0F,
-                level.getRandom().nextLong()
+                1.0F
         );
     }
 
     private void playLongHorn(ServerLevel level) {
-        level.playSeededSound(
+        level.playSound(
                 null,
                 getX(),
                 getY() + 1.4D,
@@ -643,8 +642,7 @@ public class GroundworksExcavatorEntity extends Entity {
                 GroundworksExcavatorMod.TRUCK_HORN_LONG,
                 SoundSource.BLOCKS,
                 1.25F,
-                1.0F,
-                level.getRandom().nextLong()
+                1.0F
         );
     }
 
