@@ -14,5 +14,6 @@
   "key.pw_groundworks_excavator.stick_in": "Przyciągnij przedramię (S / F)",
   "key.pw_groundworks_excavator.hammer": "Klakson / młot pneumatyczny (C)",
   "key.pw_groundworks_excavator.debug_hud": "Przełącz HUD debugowy kątów (2x H)",
-  "subtitles.pw_groundworks_excavator.engine_loop": "Warkot silnika koparki"
+  "subtitles.pw_groundworks_excavator.engine_loop": "Warkot silnika koparki",
+  "subtitles.pw_groundworks_excavator.truck_horn": "Klakson pneumatyczny"
 }
