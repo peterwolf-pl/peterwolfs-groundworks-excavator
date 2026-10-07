@@ -275,10 +275,12 @@ public class GroundworksExcavatorEntity extends Entity {
                 ArmKinematics.STICK_MIN,
                 ArmKinematics.STICK_MAX
         );
+        float minBucket = ArmKinematics.getMinBucketAngle(this.getBucketType());
+        float maxBucket = ArmKinematics.getMaxBucketAngle(this.getBucketType());
         float newBucket = Mth.clamp(
                 this.getBucketAngle() + this.inputBucket * ArmKinematics.BUCKET_SPEED,
-                ArmKinematics.BUCKET_MIN,
-                ArmKinematics.BUCKET_MAX
+                minBucket,
+                maxBucket
         );
 
         ArmTerrainContactController.JointAngles constrained =
@@ -743,6 +745,16 @@ public class GroundworksExcavatorEntity extends Entity {
                 : BUCKET_STANDARD;
         this.entityData.set(BUCKET_TYPE, clamped);
 
+        // Clamp joint angle immediately to the active tool's physical limits so attachments never clip into the stick/boom
+        float currentAngle = this.getBucketAngle();
+        float minAngle = ArmKinematics.getMinBucketAngle(clamped);
+        float maxAngle = ArmKinematics.getMaxBucketAngle(clamped);
+        if (currentAngle < minAngle) {
+            this.entityData.set(BUCKET_ANGLE, minAngle);
+        } else if (currentAngle > maxAngle) {
+            this.entityData.set(BUCKET_ANGLE, maxAngle);
+        }
+
         // The detached bucket keeps its stored material while the hammer is fitted.
         // Capacity changes only when an actual bucket is selected.
         if (clamped != BUCKET_HAMMER) {
@@ -855,11 +867,15 @@ public class GroundworksExcavatorEntity extends Entity {
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         this.setControlMode(input.getIntOr("ControlMode", MODE_DRIVE));
-        this.setBucketType(input.getIntOr("BucketType", BUCKET_STANDARD));
+        int loadedBucketType = input.getIntOr("BucketType", BUCKET_STANDARD);
+        this.setBucketType(loadedBucketType);
         this.entityData.set(UPPER_YAW, input.getFloatOr("UpperYaw", 0.0F));
         this.entityData.set(BOOM_ANGLE, input.getFloatOr("BoomAngle", 15.0F));
         this.entityData.set(STICK_ANGLE, input.getFloatOr("StickAngle", -35.0F));
-        this.entityData.set(BUCKET_ANGLE, input.getFloatOr("BucketAngle", -10.0F));
+        float loadedBucketAngle = input.getFloatOr("BucketAngle", -10.0F);
+        float minB = ArmKinematics.getMinBucketAngle(loadedBucketType);
+        float maxB = ArmKinematics.getMaxBucketAngle(loadedBucketType);
+        this.entityData.set(BUCKET_ANGLE, Mth.clamp(loadedBucketAngle, minB, maxB));
         this.entityData.set(VEHICLE_PITCH, input.getFloatOr("VehiclePitch", 0.0F));
         this.entityData.set(VEHICLE_ROLL, input.getFloatOr("VehicleRoll", 0.0F));
 

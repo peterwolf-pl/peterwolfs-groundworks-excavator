@@ -34,6 +34,12 @@ public final class ArmKinematics {
     public static final float BUCKET_MIN = -60.0F;
     public static final float BUCKET_MAX = 100.0F;
 
+    // Hydraulic hammer limits:
+    // +12° maintains clean 1.5px clearance so the breaker body and chisel never clip into the stick/boom.
+    // +160° allows tilting the breaker wide open forward and upward for face/rock hammering.
+    public static final float HAMMER_MIN = 12.0F;
+    public static final float HAMMER_MAX = 160.0F;
+
     public static final float BUCKET_MOUNT_OFFSET_DEG = 45.0F;
 
     // Hydraulic breaker dimensions in model pixels. These values are shared by
@@ -55,6 +61,14 @@ public final class ArmKinematics {
 
     // ── Dumping Threshold (degrees downward tilt) ────────────────────
     public static final float DUMP_THRESHOLD_DEG = 30.0F;
+
+    public static float getMinBucketAngle(int bucketType) {
+        return bucketType == 2 ? HAMMER_MIN : BUCKET_MIN;
+    }
+
+    public static float getMaxBucketAngle(int bucketType) {
+        return bucketType == 2 ? HAMMER_MAX : BUCKET_MAX;
+    }
 
     private ArmKinematics() {}
 
