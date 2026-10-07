@@ -15,6 +15,7 @@ public final class AutoTrenchController {
 
     public static final float WORK_CABIN_YAW = 0.0F;
     public static final float RIGHT_DUMP_YAW = 90.0F;
+    public static final float REAR_DUMP_YAW = 180.0F;
 
     public static final float SAFE_BOOM = 48.0F;
     public static final float TUCKED_STICK = -80.0F;
@@ -25,6 +26,10 @@ public final class AutoTrenchController {
     public static final float DUMP_BOOM = 34.0F;
     public static final float DUMP_STICK = -50.0F;
     public static final float DUMP_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F
+
+    // Dump-truck mode first lifts the closed bucket high, rotates 180 degrees,
+    // then lowers into the normal dump pose over the receiver body.
+    public static final float REAR_TRANSIT_BOOM = SAFE_BOOM;
 
     public static final float OPEN_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F - otwarcie łyżki na maxa!
     public static final float APPROACH_BOOM = 18.0F;
@@ -76,6 +81,11 @@ public final class AutoTrenchController {
     private static final int PENETRATION_SETTLE_TICKS = 2;
     private static final int CUT_SETTLE_TICKS = 2;
     private static final int SCOOP_SETTLE_TICKS = 2;
+
+    public enum DumpTarget {
+        RIGHT_GROUND,
+        REAR_DUMP_TRUCK
+    }
 
     public enum Phase {
         POSITION_FOR_CUT,
@@ -166,6 +176,7 @@ public final class AutoTrenchController {
     }
 
     private boolean active;
+    private DumpTarget dumpTarget = DumpTarget.RIGHT_GROUND;
     private Phase phase = Phase.POSITION_FOR_CUT;
     private int settledTicks;
     private int completedSections;
@@ -193,7 +204,22 @@ public final class AutoTrenchController {
     }
 
     public void start(float targetDepthBlocks, int cutsCenter, float expandLeftBlocks, int cutsLeft) {
+        startInternal(targetDepthBlocks, cutsCenter, expandLeftBlocks, cutsLeft, DumpTarget.RIGHT_GROUND);
+    }
+
+    public void startWithDumpTruck(float targetDepthBlocks, int cutsCenter, float expandLeftBlocks, int cutsLeft) {
+        startInternal(targetDepthBlocks, cutsCenter, expandLeftBlocks, cutsLeft, DumpTarget.REAR_DUMP_TRUCK);
+    }
+
+    private void startInternal(
+            float targetDepthBlocks,
+            int cutsCenter,
+            float expandLeftBlocks,
+            int cutsLeft,
+            DumpTarget target
+    ) {
         this.active = true;
+        this.dumpTarget = target;
         this.phase = Phase.POSITION_FOR_CUT;
         this.maxDiggingDepth = Math.max(0.2F, targetDepthBlocks);
         this.maxCutsPerStation = Math.max(1, cutsCenter);
@@ -231,9 +257,21 @@ public final class AutoTrenchController {
     }
 
     public Controls tick(Snapshot state) {
+        return tick(state, true);
+    }
+
+    public Controls tick(Snapshot state, boolean rearDumpTruckPresent) {
         if (!active) return Controls.STOPPED;
-        if (!state.occupied()) {
+
+        if (dumpTarget == DumpTarget.RIGHT_GROUND && !state.occupied()) {
             stop();
+            return Controls.STOPPED;
+        }
+
+        // The dump-truck workflow is intentionally unattended-capable. Leaving the
+        // cab does not stop it. Removing the truck from behind the excavator pauses
+        // the exact current phase until a compatible receiver returns.
+        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK && !rearDumpTruckPresent) {
             return Controls.STOPPED;
         }
 
@@ -541,6 +579,9 @@ public final class AutoTrenchController {
 
     private Controls liftAndSwingRight(Snapshot state) {
         float currentWorkYaw = currentWorkCabinYaw();
+        float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                ? REAR_DUMP_YAW
+                : RIGHT_DUMP_YAW;
 
         if (state.storedUnits() <= 0) {
             changePhase(Phase.POSITION_FOR_CUT);
@@ -554,7 +595,7 @@ public final class AutoTrenchController {
             return target(state, currentWorkYaw, state.boom(), state.stick(), HELD_BUCKET, 0.0F);
         }
 
-        handleRotationObstacle(state, RIGHT_DUMP_YAW);
+        handleRotationObstacle(state, dumpYaw);
         float targetBoom = Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
 
         // Sekwencja podnoszenia i obrotu (2-etapowa, aby nic się nie wysypało):
@@ -566,27 +607,34 @@ public final class AutoTrenchController {
 
         // 2. Obrót wieżyczki w prawo dopuszczamy dopiero, gdy łyżka jest domknięta
         //    i wysięgnik podniósł urobek ponad poziom gruntu (boom >= 22.0F).
-        boolean armClearedGround = state.boom() >= 22.0F;
+        boolean armClearedGround = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                ? state.boom() >= REAR_TRANSIT_BOOM - 1.5F
+                : state.boom() >= 22.0F;
 
         // Reaching this phase is already the authoritative decision that the load should be
         // dumped. Do not apply a second fill threshold here, because that created the
         // raised-arm deadlock for partially filled buckets.
-        float targetCab = armClearedGround ? RIGHT_DUMP_YAW : currentWorkYaw;
+        // In dump-truck mode the boom must be high before the 180-degree rear swing begins.
+        float targetCab = armClearedGround ? dumpYaw : currentWorkYaw;
 
         Controls controls = target(
                 state, targetCab, targetBoom, targetStick, HELD_BUCKET, 0.0F);
-        if (atTarget(state, RIGHT_DUMP_YAW, targetBoom, SAFE_STICK, HELD_BUCKET)) {
+        if (atTarget(state, dumpYaw, targetBoom, SAFE_STICK, HELD_BUCKET)) {
             changePhase(Phase.DUMP_RIGHT);
         }
         return controls;
     }
 
     private Controls dumpRight(Snapshot state) {
+        float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                ? REAR_DUMP_YAW
+                : RIGHT_DUMP_YAW;
+
         // Podczas wysypywania bardziej wyprostowane przedramię (DUMP_STICK) i otwarta do końca łyżka (DUMP_BUCKET)
         Controls controls = target(
-                state, RIGHT_DUMP_YAW, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET, 0.0F);
+                state, dumpYaw, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET, 0.0F);
         if (state.storedUnits() == 0
-                && atTarget(state, RIGHT_DUMP_YAW, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET)) {
+                && atTarget(state, dumpYaw, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET)) {
             cutsAtCurrentStation++;
             retriesAtCurrentStation = 0;
             lowFillRetriesAtCurrentStation = 0;
@@ -734,6 +782,14 @@ public final class AutoTrenchController {
 
     public boolean isActive() {
         return active;
+    }
+
+    public DumpTarget dumpTarget() {
+        return dumpTarget;
+    }
+
+    public boolean isDumpTruckMode() {
+        return active && dumpTarget == DumpTarget.REAR_DUMP_TRUCK;
     }
 
     public Phase phase() {
