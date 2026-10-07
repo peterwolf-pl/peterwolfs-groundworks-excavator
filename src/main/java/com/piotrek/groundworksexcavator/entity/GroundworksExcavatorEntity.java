@@ -462,7 +462,7 @@ public class GroundworksExcavatorEntity extends Entity {
             BucketDumpingController.DumpTickResult dumpResult =
                     this.autoTrenchController.allowsBucketDumping()
                             ? BucketDumpingController.tick(
-                                    serverLevel, this.bucket, this.currentBucketPose)
+                                    serverLevel, this, this.bucket, this.currentBucketPose)
                             : BucketDumpingController.DumpTickResult.NONE;
 
             this.lastDepositedUnits = dumpResult.unitsDeposited();
