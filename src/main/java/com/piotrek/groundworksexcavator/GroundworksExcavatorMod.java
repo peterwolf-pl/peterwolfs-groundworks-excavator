@@ -93,6 +93,7 @@ public class GroundworksExcavatorMod implements ModInitializer {
                                     payload.bucketInput()
                             );
                             excavator.setHammerInput(payload.hammerActive());
+                            excavator.setHornInput(payload.hornActive());
                         }
                     });
                 }
