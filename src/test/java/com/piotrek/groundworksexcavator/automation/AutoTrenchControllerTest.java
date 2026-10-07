@@ -615,6 +615,61 @@ class AutoTrenchControllerTest {
                 "After relief with a well-loaded bucket, controller lifts and swings to dump");
     }
 
+    @Test
+    void dumpTruckModeSurvivesCabExitAndPausesWithoutRearTruck() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.startWithDumpTruck(1.0F, 2, 0.0F, 0);
+
+        AutoTrenchController.Controls paused = controller.tick(snapshot(
+                false, 0.0F, AutoTrenchController.SAFE_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                0, Vec3.ZERO, 0.0F), false);
+
+        assertTrue(controller.isActive(), "Leaving the cab must not stop dump-truck AutoTrench");
+        assertTrue(controller.isDumpTruckMode());
+        assertEquals(AutoTrenchController.Controls.STOPPED, paused,
+                "Missing rear dump truck must pause without advancing the state machine");
+
+        controller.tick(snapshot(
+                false, 0.0F, AutoTrenchController.SAFE_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                0, Vec3.ZERO, 0.0F), true);
+
+        assertTrue(controller.isActive(), "Returning a rear dump truck resumes unattended automation");
+    }
+
+    @Test
+    void dumpTruckModeRaisesHighBeforeStartingRearSwing() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.startWithDumpTruck(1.0F, 2, 0.0F, 0);
+        controller.setPhaseForTest(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT);
+
+        AutoTrenchController.Controls low = controller.tick(snapshot(
+                false, 0.0F, 22.0F,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                400, Vec3.ZERO, 0.0F), true);
+
+        assertEquals(0.0F, low.cabYaw(), 0.0001F,
+                "Rear rotation must wait until the boom is raised high");
+
+        AutoTrenchController.Controls high = controller.tick(snapshot(
+                false, 0.0F, AutoTrenchController.REAR_TRANSIT_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                400, Vec3.ZERO, 0.0F), true);
+
+        assertNotEquals(0.0F, high.cabYaw(),
+                "At safe boom height the controller must begin the 180-degree rear swing");
+
+        controller.tick(snapshot(
+                false, AutoTrenchController.REAR_DUMP_YAW,
+                AutoTrenchController.REAR_TRANSIT_BOOM,
+                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                400, Vec3.ZERO, 0.0F), true);
+
+        assertEquals(AutoTrenchController.Phase.DUMP_RIGHT, controller.phase(),
+                "At the rear high transit pose the next phase is dumping into the truck");
+    }
+
     private static AutoTrenchController.Snapshot snapshot(
             boolean occupied,
             float cabin,
