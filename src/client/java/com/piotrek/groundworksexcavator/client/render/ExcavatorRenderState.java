@@ -17,7 +17,8 @@ public class ExcavatorRenderState extends EntityRenderState {
 
     public float leftTrackSpeed;
     public float rightTrackSpeed;
-    public float trackScroll;
+    public float leftTrackTravel;
+    public float rightTrackTravel;
 
     public int materialId;
     public int storedUnits;
