@@ -28,8 +28,9 @@ public final class AutoTrenchController {
     public static final float DUMP_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F
 
     // Dump-truck mode first lifts the closed bucket high, rotates 180 degrees,
-    // then lowers into the normal dump pose over the receiver body.
+    // then moves to a dedicated +50-degree receiver-check pose before opening.
     public static final float REAR_TRANSIT_BOOM = SAFE_BOOM;
+    public static final float REAR_DUMP_CHECK_BOOM = 50.0F;
 
     public static final float OPEN_BUCKET = ArmKinematics.BUCKET_MAX; // 100.0F - otwarcie łyżki na maxa!
     public static final float APPROACH_BOOM = 18.0F;
@@ -625,19 +626,82 @@ public final class AutoTrenchController {
     }
 
     private Controls dumpRight(Snapshot state) {
-        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                && !dumpTruckAtDumpPointThisTick) {
-            // Hold the fully raised, rear-facing, closed-bucket pose. Do not lower
-            // or open the bucket until a compatible dump truck is actually under
-            // the planned dump lip.
-            return Controls.STOPPED;
-        }
-
         float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
                 ? REAR_DUMP_YAW
                 : RIGHT_DUMP_YAW;
 
-        // Podczas wysypywania bardziej wyprostowane przedramię (DUMP_STICK) i otwarta do końca łyżka (DUMP_BUCKET)
+        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK) {
+            // Rear truck workflow:
+            // 1. the 180-degree swing has already completed in LIFT_AND_SWING_RIGHT,
+            // 2. lower/move the closed bucket into the dedicated +50-degree check pose,
+            // 3. only there verify that a compatible truck is under the lip,
+            // 4. keep exactly that pose and open the bucket only after the receiver exists.
+            boolean atTruckCheckPose = atTarget(
+                    state,
+                    REAR_DUMP_YAW,
+                    REAR_DUMP_CHECK_BOOM,
+                    DUMP_STICK,
+                    HELD_BUCKET
+            );
+
+            if (!atTruckCheckPose) {
+                return target(
+                        state,
+                        REAR_DUMP_YAW,
+                        REAR_DUMP_CHECK_BOOM,
+                        DUMP_STICK,
+                        HELD_BUCKET,
+                        0.0F
+                );
+            }
+
+            if (!dumpTruckAtDumpPointThisTick) {
+                return Controls.STOPPED;
+            }
+
+            Controls controls = target(
+                    state,
+                    REAR_DUMP_YAW,
+                    REAR_DUMP_CHECK_BOOM,
+                    DUMP_STICK,
+                    DUMP_BUCKET,
+                    0.0F
+            );
+
+            if (state.storedUnits() == 0
+                    && atTarget(
+                            state,
+                            REAR_DUMP_YAW,
+                            REAR_DUMP_CHECK_BOOM,
+                            DUMP_STICK,
+                            DUMP_BUCKET
+                    )) {
+                cutsAtCurrentStation++;
+                retriesAtCurrentStation = 0;
+                lowFillRetriesAtCurrentStation = 0;
+                swingObstacleBoomBoost = 0.0F;
+
+                int targetLimit = inLeftExpansionPass ? leftExpansionCycles : maxCutsPerStation;
+                if (cutsAtCurrentStation < targetLimit) {
+                    changePhase(Phase.POSITION_FOR_CUT);
+                } else if (!inLeftExpansionPass
+                        && leftExpansionBlocks > 0.0F
+                        && leftExpansionCycles > 0) {
+                    inLeftExpansionPass = true;
+                    cutsAtCurrentStation = 0;
+                    changePhase(Phase.POSITION_FOR_CUT);
+                } else {
+                    inLeftExpansionPass = false;
+                    cutsAtCurrentStation = 0;
+                    this.reverseOrigin = state.position();
+                    changePhase(Phase.RESET_AND_REVERSE);
+                }
+            }
+
+            return controls;
+        }
+
+        // Standard AutoTrench keeps its existing right-side ground dump pose.
         Controls controls = target(
                 state, dumpYaw, DUMP_BOOM, DUMP_STICK, DUMP_BUCKET, 0.0F);
         if (state.storedUnits() == 0
