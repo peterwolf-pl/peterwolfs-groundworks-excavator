@@ -177,7 +177,7 @@ public final class AutoTrenchController {
 
     private boolean active;
     private DumpTarget dumpTarget = DumpTarget.RIGHT_GROUND;
-    private boolean rearDumpTruckPresentThisTick = true;
+    private boolean dumpTruckAtDumpPointThisTick = true;
     private Phase phase = Phase.POSITION_FOR_CUT;
     private int settledTicks;
     private int completedSections;
@@ -261,7 +261,7 @@ public final class AutoTrenchController {
         return tick(state, true);
     }
 
-    public Controls tick(Snapshot state, boolean rearDumpTruckPresent) {
+    public Controls tick(Snapshot state, boolean dumpTruckAtDumpPoint) {
         if (!active) return Controls.STOPPED;
 
         if (dumpTarget == DumpTarget.RIGHT_GROUND && !state.occupied()) {
@@ -269,11 +269,10 @@ public final class AutoTrenchController {
             return Controls.STOPPED;
         }
 
-        // In dump-truck mode the excavator is allowed to start and continue the
-        // digging stroke even while the truck is away being emptied. Presence of
-        // the receiver is required only once the loaded bucket is about to swing
-        // behind the excavator / dump / reposition the station.
-        this.rearDumpTruckPresentThisTick = rearDumpTruckPresent;
+        // In dump-truck mode no receiver check is performed while digging,
+        // lifting, or rotating. The receiver is required only after the loaded
+        // bucket has completed its 180-degree rear swing and is ready to dump.
+        this.dumpTruckAtDumpPointThisTick = dumpTruckAtDumpPoint;
 
         if (phase == Phase.POSITION_FOR_CUT && state.storedUnits() > 0) {
             // A leftover partial load must not enter LIFT_AND_SWING_RIGHT and deadlock there.
@@ -578,11 +577,6 @@ public final class AutoTrenchController {
     }
 
     private Controls liftAndSwingRight(Snapshot state) {
-        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                && !rearDumpTruckPresentThisTick) {
-            return Controls.STOPPED;
-        }
-
         float currentWorkYaw = currentWorkCabinYaw();
         float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
                 ? REAR_DUMP_YAW
@@ -632,7 +626,10 @@ public final class AutoTrenchController {
 
     private Controls dumpRight(Snapshot state) {
         if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                && !rearDumpTruckPresentThisTick) {
+                && !dumpTruckAtDumpPointThisTick) {
+            // Hold the fully raised, rear-facing, closed-bucket pose. Do not lower
+            // or open the bucket until a compatible dump truck is actually under
+            // the planned dump lip.
             return Controls.STOPPED;
         }
 
@@ -673,11 +670,6 @@ public final class AutoTrenchController {
     }
 
     private Controls resetAndReverse(Snapshot state) {
-        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                && !rearDumpTruckPresentThisTick) {
-            return Controls.STOPPED;
-        }
-
         if (reverseOrigin == null) reverseOrigin = state.position();
         Vec3 forward = forward(state.baseYaw());
         double reversed = reverseOrigin.subtract(state.position()).dot(forward);
