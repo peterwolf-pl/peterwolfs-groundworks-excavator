@@ -4,5 +4,17 @@
     "sounds": [
       "pw_groundworks_excavator:engine_loop"
     ]
+  },
+  "truck_horn_short": {
+    "subtitle": "subtitles.pw_groundworks_excavator.truck_horn",
+    "sounds": [
+      "pw_groundworks_excavator:truck_horn_short"
+    ]
+  },
+  "truck_horn_long": {
+    "subtitle": "subtitles.pw_groundworks_excavator.truck_horn",
+    "sounds": [
+      "pw_groundworks_excavator:truck_horn_long"
+    ]
   }
 }
