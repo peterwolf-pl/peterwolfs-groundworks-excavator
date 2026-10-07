@@ -276,7 +276,7 @@ public class GroundworksExcavatorEntity extends Entity {
                 boolean dumpTruckAtDumpPoint =
                         !this.autoTrenchController.isDumpTruckMode()
                                 || this.autoTrenchController.phase() != AutoTrenchController.Phase.DUMP_RIGHT
-                                || this.hasDumpTruckUnderPlannedRearDumpLip(serverLevel);
+                                || this.findDumpTruckUnderPlannedRearDumpLip(serverLevel) != null;
 
                 controls = this.autoTrenchController.tick(
                         snapshot,
@@ -506,19 +506,32 @@ public class GroundworksExcavatorEntity extends Entity {
 
             // AutoTrench owns its dump timing, so retry/penetration poses cannot
             // spill a partial load merely because the bucket crosses the dump angle.
-            // In DumpTruck mode terrain fallback is forbidden: material may leave
-            // the bucket only while a compatible mobile container is physically
-            // under the current bucket lip.
-            boolean receiverUnderCurrentLip =
-                    !this.autoTrenchController.isDumpTruckMode()
-                            || this.hasDumpTruckUnderCurrentBucketLip(serverLevel);
-
-            BucketDumpingController.DumpTickResult dumpResult =
-                    this.autoTrenchController.allowsBucketDumping()
-                            && receiverUnderCurrentLip
-                            ? BucketDumpingController.tick(
-                                    serverLevel, this, this.bucket, this.currentBucketPose)
-                            : BucketDumpingController.DumpTickResult.NONE;
+            // DumpTruck mode qualifies the receiver from the fixed +50-degree,
+            // rear-facing, closed-bucket check pose. Once qualified, that receiver
+            // remains the transfer target while the bucket lip moves as it opens.
+            BucketDumpingController.DumpTickResult dumpResult;
+            if (!this.autoTrenchController.allowsBucketDumping()) {
+                dumpResult = BucketDumpingController.DumpTickResult.NONE;
+            } else if (this.autoTrenchController.isDumpTruckMode()) {
+                IMobileWorldGranularContainer dumpReceiver =
+                        this.findDumpTruckUnderPlannedRearDumpLip(serverLevel);
+                dumpResult = dumpReceiver != null
+                        ? BucketDumpingController.tickToReceiver(
+                                serverLevel,
+                                this,
+                                this.bucket,
+                                this.currentBucketPose,
+                                dumpReceiver
+                        )
+                        : BucketDumpingController.DumpTickResult.NONE;
+            } else {
+                dumpResult = BucketDumpingController.tick(
+                        serverLevel,
+                        this,
+                        this.bucket,
+                        this.currentBucketPose
+                );
+            }
 
             this.lastDepositedUnits = dumpResult.unitsDeposited();
             this.entityData.set(IS_DUMPING, dumpResult.dumping());
@@ -678,22 +691,10 @@ public class GroundworksExcavatorEntity extends Entity {
         this.autoTruckHornDelayTicks = 0;
     }
 
-    private boolean hasDumpTruckUnderCurrentBucketLip(ServerLevel level) {
-        if (this.currentBucketPose == null) {
-            return false;
-        }
-
-        IWorldGranularContainer receiver = GranularContainerTransferApi.findReceiver(
-                level,
-                this.currentBucketPose.lip(),
-                this,
-                4.0D
-        );
-
-        return receiver instanceof IMobileWorldGranularContainer;
-    }
-
-    private boolean hasDumpTruckUnderPlannedRearDumpLip(ServerLevel level) {
+    @Nullable
+    private IMobileWorldGranularContainer findDumpTruckUnderPlannedRearDumpLip(
+            ServerLevel level
+    ) {
         BucketPose plannedDumpPose = ArmKinematics.computeBucketPose(
                 this.position(),
                 this.getYRot(),
@@ -714,7 +715,9 @@ public class GroundworksExcavatorEntity extends Entity {
                 4.0D
         );
 
-        return receiver instanceof IMobileWorldGranularContainer;
+        return receiver instanceof IMobileWorldGranularContainer mobile
+                ? mobile
+                : null;
     }
 
     @Nullable
