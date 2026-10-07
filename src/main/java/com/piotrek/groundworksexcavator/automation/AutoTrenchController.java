@@ -177,6 +177,7 @@ public final class AutoTrenchController {
 
     private boolean active;
     private DumpTarget dumpTarget = DumpTarget.RIGHT_GROUND;
+    private boolean rearDumpTruckPresentThisTick = true;
     private Phase phase = Phase.POSITION_FOR_CUT;
     private int settledTicks;
     private int completedSections;
@@ -268,12 +269,11 @@ public final class AutoTrenchController {
             return Controls.STOPPED;
         }
 
-        // The dump-truck workflow is intentionally unattended-capable. Leaving the
-        // cab does not stop it. Removing the truck from behind the excavator pauses
-        // the exact current phase until a compatible receiver returns.
-        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK && !rearDumpTruckPresent) {
-            return Controls.STOPPED;
-        }
+        // In dump-truck mode the excavator is allowed to start and continue the
+        // digging stroke even while the truck is away being emptied. Presence of
+        // the receiver is required only once the loaded bucket is about to swing
+        // behind the excavator / dump / reposition the station.
+        this.rearDumpTruckPresentThisTick = rearDumpTruckPresent;
 
         if (phase == Phase.POSITION_FOR_CUT && state.storedUnits() > 0) {
             // A leftover partial load must not enter LIFT_AND_SWING_RIGHT and deadlock there.
@@ -578,6 +578,11 @@ public final class AutoTrenchController {
     }
 
     private Controls liftAndSwingRight(Snapshot state) {
+        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                && !rearDumpTruckPresentThisTick) {
+            return Controls.STOPPED;
+        }
+
         float currentWorkYaw = currentWorkCabinYaw();
         float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
                 ? REAR_DUMP_YAW
@@ -626,6 +631,11 @@ public final class AutoTrenchController {
     }
 
     private Controls dumpRight(Snapshot state) {
+        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                && !rearDumpTruckPresentThisTick) {
+            return Controls.STOPPED;
+        }
+
         float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
                 ? REAR_DUMP_YAW
                 : RIGHT_DUMP_YAW;
@@ -663,6 +673,11 @@ public final class AutoTrenchController {
     }
 
     private Controls resetAndReverse(Snapshot state) {
+        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                && !rearDumpTruckPresentThisTick) {
+            return Controls.STOPPED;
+        }
+
         if (reverseOrigin == null) reverseOrigin = state.position();
         Vec3 forward = forward(state.baseYaw());
         double reversed = reverseOrigin.subtract(state.position()).dot(forward);
