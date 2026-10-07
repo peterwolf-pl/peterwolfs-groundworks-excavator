@@ -683,7 +683,7 @@ public final class AutoTrenchController {
             if (state.storedUnits() == 0
                     && atTarget(
                             state,
-                            REAR_DUMP_YAW,
+                            dumpYaw,
                             REAR_DUMP_CHECK_BOOM,
                             DUMP_STICK,
                             DUMP_BUCKET
