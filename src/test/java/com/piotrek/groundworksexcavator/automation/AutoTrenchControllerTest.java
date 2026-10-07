@@ -616,7 +616,7 @@ class AutoTrenchControllerTest {
     }
 
     @Test
-    void dumpTruckModeChecksReceiverOnlyAfterFullRearSwing() {
+    void dumpTruckModeChecksReceiverOnlyAtPlus50AfterRearSwing() {
         AutoTrenchController controller = new AutoTrenchController();
         controller.startWithDumpTruck(1.0F, 2, 0.0F, 0);
 
@@ -631,14 +631,6 @@ class AutoTrenchControllerTest {
                 "Missing truck must not prevent the excavator from starting the digging cycle");
 
         controller.setPhaseForTest(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT);
-        AutoTrenchController.Controls lifting = controller.tick(snapshot(
-                false, 0.0F, 22.0F,
-                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
-                400, Vec3.ZERO, 0.0F), false);
-
-        assertNotEquals(AutoTrenchController.Controls.STOPPED, lifting,
-                "Missing truck must not prevent the loaded bucket from lifting");
-
         AutoTrenchController.Controls rotating = controller.tick(snapshot(
                 false, 0.0F, AutoTrenchController.REAR_TRANSIT_BOOM,
                 AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
@@ -655,23 +647,36 @@ class AutoTrenchControllerTest {
 
         assertEquals(AutoTrenchController.Phase.DUMP_RIGHT, controller.phase());
 
-        AutoTrenchController.Controls waiting = controller.tick(snapshot(
+        AutoTrenchController.Controls lowering = controller.tick(snapshot(
                 false, AutoTrenchController.REAR_DUMP_YAW,
                 AutoTrenchController.REAR_TRANSIT_BOOM,
                 AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
                 400, Vec3.ZERO, 0.0F), false);
 
+        assertNotEquals(AutoTrenchController.Controls.STOPPED, lowering,
+                "After the 180-degree swing the arm must move to the +50-degree check pose even with no truck");
+        assertEquals(0.0F, lowering.bucket(), 0.0001F,
+                "The bucket must remain closed while moving to the truck-check pose");
+
+        AutoTrenchController.Controls waiting = controller.tick(snapshot(
+                false, AutoTrenchController.REAR_DUMP_YAW,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
+                AutoTrenchController.DUMP_STICK, AutoTrenchController.HELD_BUCKET,
+                400, Vec3.ZERO, 0.0F), false);
+
         assertEquals(AutoTrenchController.Controls.STOPPED, waiting,
-                "After the 180-degree swing the excavator must pause with the bucket closed if no truck is under the dump point");
+                "At +50 degrees the excavator must pause with the bucket closed when no truck is under the lip");
 
         AutoTrenchController.Controls resumed = controller.tick(snapshot(
                 false, AutoTrenchController.REAR_DUMP_YAW,
-                AutoTrenchController.REAR_TRANSIT_BOOM,
-                AutoTrenchController.SAFE_STICK, AutoTrenchController.HELD_BUCKET,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
+                AutoTrenchController.DUMP_STICK, AutoTrenchController.HELD_BUCKET,
                 400, Vec3.ZERO, 0.0F), true);
 
         assertNotEquals(AutoTrenchController.Controls.STOPPED, resumed,
-                "A truck under the dump point must resume the dump motion");
+                "A truck under the +50-degree dump point must resume unloading");
+        assertTrue(resumed.bucket() > 0.0F,
+                "Once the truck is present the bucket must begin opening");
     }
 
     @Test
