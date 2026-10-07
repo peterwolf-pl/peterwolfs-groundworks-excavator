@@ -822,6 +822,244 @@ public class GroundworksExcavatorEntity extends Entity {
         this.autoTruckHornDelayTicks = 0;
     }
 
+    /**
+     * Fleet end-of-station handshake: the excavator emits the same double horn
+     * and every compatible unoccupied truck in range advances one block.
+     */
+    private AutoTrenchController.Controls tickAutomaticFleetAdvanceBeforeReverse(
+            ServerLevel level,
+            AutoTrenchController.Snapshot snapshot
+    ) {
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_IDLE) {
+            this.playHorn(level);
+            this.autoTruckHornDelayTicks = AUTO_SECOND_HORN_DELAY_TICKS;
+            this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_SECOND_HORN;
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_WAIT_SECOND_HORN) {
+            if (--this.autoTruckHornDelayTicks > 0) {
+                return AutoTrenchController.Controls.STOPPED;
+            }
+
+            this.playHorn(level);
+            for (IMobileWorldGranularContainer truck :
+                    this.findAllMobileContainers(level, FLEET_TRUCK_SEARCH_RADIUS)) {
+                truck.requestAdvance(1.0D);
+            }
+            this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE;
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        if (this.autoTruckAdvanceStage == AUTO_TRUCK_STAGE_WAIT_TRUCK_MOVE) {
+            boolean anyMoving = false;
+            for (IMobileWorldGranularContainer truck :
+                    this.findAllMobileContainers(level, FLEET_TRUCK_SEARCH_RADIUS)) {
+                if (truck.isAdvanceInProgress()) {
+                    anyMoving = true;
+                    break;
+                }
+            }
+            if (anyMoving) {
+                return AutoTrenchController.Controls.STOPPED;
+            }
+
+            this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_READY_TO_REVERSE;
+            return AutoTrenchController.Controls.STOPPED;
+        }
+
+        AutoTrenchController.Controls controls = this.autoTrenchController.tick(
+                snapshot,
+                true
+        );
+        if (this.autoTrenchController.phase() != AutoTrenchController.Phase.RESET_AND_REVERSE) {
+            this.resetAutomaticTruckAdvanceSequence();
+        }
+        return controls;
+    }
+
+    private java.util.List<IMobileWorldGranularContainer> findAllMobileContainers(
+            ServerLevel level,
+            double radius
+    ) {
+        AABB area = this.getBoundingBox().inflate(radius, 4.0D, radius);
+        java.util.ArrayList<IMobileWorldGranularContainer> result = new java.util.ArrayList<>();
+
+        for (Entity candidate : level.getEntitiesOfClass(
+                Entity.class,
+                area,
+                entity -> entity != this
+                        && entity instanceof IMobileWorldGranularContainer
+        )) {
+            result.add((IMobileWorldGranularContainer) candidate);
+        }
+        return result;
+    }
+
+    @Nullable
+    private IMobileWorldGranularContainer getFleetTarget(ServerLevel level) {
+        if (this.fleetTargetEntityId < 0) {
+            return null;
+        }
+
+        Entity entity = level.getEntity(this.fleetTargetEntityId);
+        return entity instanceof IMobileWorldGranularContainer mobile
+                ? mobile
+                : null;
+    }
+
+    /**
+     * Keeps one fleet receiver selected until its bed is full. A full receiver
+     * is replaced by the fullest remaining truck. If the old truck filled before
+     * the bucket emptied, retargetFleetDump makes the controller close the bucket
+     * before swinging toward the replacement.
+     */
+    @Nullable
+    private IMobileWorldGranularContainer updateFleetTarget(
+            ServerLevel level,
+            AutoTrenchController.Snapshot snapshot
+    ) {
+        IMobileWorldGranularContainer current = this.getFleetTarget(level);
+
+        if (current != null && this.isReceiverFull(current)) {
+            this.updateFullTruckSignal(level, current);
+
+            // Let an empty bucket finish the current DUMP_RIGHT phase before
+            // selecting the next truck for the next digging cycle.
+            if (snapshot.storedUnits() <= 0
+                    && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT) {
+                return current;
+            }
+
+            this.fleetTargetEntityId = -1;
+            current = null;
+        }
+
+        if (current != null) {
+            Vec3 currentLip = this.plannedFleetDumpLip(this.fleetTargetYaw);
+            if (current.canReceiveAt(currentLip)) {
+                this.autoTrenchController.setFleetDumpYaw(this.fleetTargetYaw);
+                return current;
+            }
+
+            Float correctedYaw = this.findFleetDumpYaw(current);
+            if (correctedYaw != null) {
+                float previousYaw = this.fleetTargetYaw;
+                this.fleetTargetYaw = correctedYaw;
+                if (snapshot.storedUnits() > 0
+                        && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT
+                        && Math.abs(Mth.wrapDegrees(correctedYaw - previousYaw)) > 1.0F) {
+                    this.autoTrenchController.retargetFleetDump(correctedYaw);
+                } else {
+                    this.autoTrenchController.setFleetDumpYaw(correctedYaw);
+                }
+                return current;
+            }
+
+            this.fleetTargetEntityId = -1;
+            current = null;
+        }
+
+        IMobileWorldGranularContainer selected = this.selectBestFleetTarget(level);
+        if (selected != null) {
+            if (snapshot.storedUnits() > 0
+                    && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT) {
+                this.autoTrenchController.retargetFleetDump(this.fleetTargetYaw);
+            } else {
+                this.autoTrenchController.setFleetDumpYaw(this.fleetTargetYaw);
+            }
+            return selected;
+        }
+
+        // No receiver is currently reachable. If a partial load is already in
+        // DUMP_RIGHT, re-close it before waiting instead of hanging with an open bucket.
+        if (snapshot.storedUnits() > 0
+                && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT) {
+            this.autoTrenchController.retargetFleetDump(snapshot.cabin());
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private IMobileWorldGranularContainer selectBestFleetTarget(ServerLevel level) {
+        IMobileWorldGranularContainer best = null;
+        Entity bestEntity = null;
+        float bestYaw = AutoTrenchController.REAR_DUMP_YAW;
+        double bestFill = -1.0D;
+        double bestDistance = Double.MAX_VALUE;
+
+        for (IMobileWorldGranularContainer candidate :
+                this.findAllMobileContainers(level, FLEET_TRUCK_SEARCH_RADIUS)) {
+            if (!(candidate instanceof Entity entity)
+                    || candidate.capacity() <= 0
+                    || this.isReceiverFull(candidate)
+                    || candidate.isAdvanceInProgress()) {
+                continue;
+            }
+
+            Float yaw = this.findFleetDumpYaw(candidate);
+            if (yaw == null) {
+                continue;
+            }
+
+            double fill = (double) candidate.storedUnits() / (double) candidate.capacity();
+            double distance = entity.distanceToSqr(this.getX(), this.getY(), this.getZ());
+
+            if (fill > bestFill + 1.0E-6D
+                    || (Math.abs(fill - bestFill) <= 1.0E-6D && distance < bestDistance)) {
+                best = candidate;
+                bestEntity = entity;
+                bestYaw = yaw;
+                bestFill = fill;
+                bestDistance = distance;
+            }
+        }
+
+        if (best != null && bestEntity != null) {
+            this.fleetTargetEntityId = bestEntity.getId();
+            this.fleetTargetYaw = bestYaw;
+        }
+        return best;
+    }
+
+    @Nullable
+    private Float findFleetDumpYaw(IMobileWorldGranularContainer receiver) {
+        float bestYaw = 0.0F;
+        float bestSwing = Float.MAX_VALUE;
+        boolean found = false;
+
+        for (float yaw = -180.0F; yaw < 180.0F; yaw += FLEET_YAW_STEP_DEGREES) {
+            Vec3 plannedLip = this.plannedFleetDumpLip(yaw);
+            if (!receiver.canReceiveAt(plannedLip)) {
+                continue;
+            }
+
+            float swing = Math.abs(Mth.wrapDegrees(yaw - this.getUpperYaw()));
+            if (!found || swing < bestSwing) {
+                bestSwing = swing;
+                bestYaw = yaw;
+                found = true;
+            }
+        }
+
+        return found ? bestYaw : null;
+    }
+
+    private Vec3 plannedFleetDumpLip(float cabinYaw) {
+        return ArmKinematics.computeBucketPose(
+                this.position(),
+                this.getYRot(),
+                this.getVehiclePitch(),
+                this.getVehicleRoll(),
+                cabinYaw,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
+                AutoTrenchController.DUMP_STICK,
+                AutoTrenchController.HELD_BUCKET,
+                this.getBucketType()
+        ).lip();
+    }
+
     @Nullable
     private IMobileWorldGranularContainer findDumpTruckUnderPlannedRearDumpLip(
             ServerLevel level
