@@ -88,7 +88,8 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
    - Before unloading, the bucket is raised high and the upper structure rotates 180 degrees to dump into a Groundworks world container behind the excavator.
    - Leaving the cab does not stop this AutoTrench mode.
    - The excavator does not look for the truck while digging, lifting, or rotating. It first raises the loaded bucket and completes the full 180-degree rear swing.
-   - Only then it checks the planned dump-lip position. If a compatible dump truck is under the bucket, unloading begins; otherwise the excavator pauses in the raised rear-facing pose with the bucket closed.
+   - After the swing it moves the closed bucket to the dedicated rear dump check pose with the boom at +50 degrees.
+   - Only in that +50-degree pose does it check the planned dump-lip position. If a compatible dump truck is under the bucket, the bucket opens and unloading begins; otherwise the excavator pauses there with the load retained.
    - At the end of each completed station, after the last bucket is emptied, the excavator automatically gives two short horn blasts.
    - The rear dump truck then advances exactly one block. The excavator waits for that move to finish and only then reverses itself one block for the next trench station.
    - If the truck is blocked and cannot finish the requested block, AutoTrench remains paused instead of reversing the excavator.
