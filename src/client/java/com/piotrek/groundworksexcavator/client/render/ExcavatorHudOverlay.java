@@ -163,14 +163,16 @@ public class ExcavatorHudOverlay implements HudElement {
         // ── WORK TOOL ANGLE ──
         boolean hammer = excavator.isHammerAttachment();
         float bucket = excavator.getBucketAngle();
-        float bucketFrac = fraction(bucket, ArmKinematics.BUCKET_MIN, ArmKinematics.BUCKET_MAX);
+        float toolMin = ArmKinematics.getMinBucketAngle(excavator.getBucketType());
+        float toolMax = ArmKinematics.getMaxBucketAngle(excavator.getBucketType());
+        float bucketFrac = fraction(bucket, toolMin, toolMax);
         BucketPose pose = getOrCreatePose(excavator);
         float dumpTilt = pose.dumpTiltDegrees();
 
         curY = debugY + 39;
         extractor.text(font, String.format("§6%s: §f%+.1f° §7[%+.0f°..%+.0f°]",
                 hammer ? "Młot" : "Łyżka",
-                bucket, ArmKinematics.BUCKET_MIN, ArmKinematics.BUCKET_MAX), x, curY, 0xFFFFFFFF, true);
+                bucket, toolMin, toolMax), x, curY, 0xFFFFFFFF, true);
         int bucketBarColor = dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? 0xFFFF8800 : 0xFFFFAA00;
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, bucketFrac, bucketBarColor);
 
