@@ -163,13 +163,20 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         }
     }
 
+    /**
+     * Compact rectangular work lamp based on the dump-truck headlamp shape.
+     * The dark housing is shallow and the bright lens sits slightly proud of it,
+     * so the lamp reads as a real machine floodlight instead of a torch-like block.
+     */
     private static void addWorkLamp(PartDefinition upperBody, String name, float x) {
         upperBody.addOrReplaceChild(
                 name,
                 CubeListBuilder.create()
-                        .texOffs(128, 176).addBox(-1.6F, -2.6F, -1.3F, 3.2F, 1.8F, 2.6F)
-                        .texOffs(136, 176).addBox(-1.2F, -1.8F, 1.1F, 2.4F, 1.2F, 0.8F),
-                PartPose.offset(x, -27.0F, 14.5F)
+                        // Small dark metal housing.
+                        .texOffs(290, 122).addBox(-1.8F, -1.5F, -0.7F, 3.6F, 2.6F, 1.1F)
+                        // Flat bright lens, scaled down from the dump-truck headlamp.
+                        .texOffs(390, 74).addBox(-1.5F, -1.2F, 0.35F, 3.0F, 2.0F, 0.45F),
+                PartPose.offset(x, -27.0F, 14.7F)
         );
     }
 
@@ -278,7 +285,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Two floodlights on the cab roof front lip. Lenses face the boom.
+        // Two compact dump-truck-style floodlights on the cab roof front lip.
         addWorkLamp(upperBody, "work_lamp_left", -15.0F);
         addWorkLamp(upperBody, "work_lamp_right", -5.0F);
 
