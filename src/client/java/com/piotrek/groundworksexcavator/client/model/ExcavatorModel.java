@@ -30,8 +30,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
     private final ModelPart bucketContentsLargeDirt;
     private final ModelPart bucketContentsLargeSand;
     private final ModelPart bucketContentsLargeGravel;
-    private final ModelPart beaconReflectorOn;
-    private final ModelPart beaconReflectorOff;
+    private final ModelPart beaconLamp;
 
     public ExcavatorModel(ModelPart root) {
         super(root);
@@ -48,9 +47,17 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         this.bucketContentsLargeDirt = this.bucketLarge.getChild("bucket_contents_large_dirt");
         this.bucketContentsLargeSand = this.bucketLarge.getChild("bucket_contents_large_sand");
         this.bucketContentsLargeGravel = this.bucketLarge.getChild("bucket_contents_large_gravel");
-        ModelPart beaconBase = this.upperBody.getChild("beacon_base");
-        this.beaconReflectorOn = beaconBase.getChild("beacon_reflector_on");
-        this.beaconReflectorOff = beaconBase.getChild("beacon_reflector_off");
+        this.beaconLamp = this.upperBody.getChild("beacon_base").getChild("beacon_lamp");
+    }
+
+    private static void addWorkLamp(PartDefinition upperBody, String name, float x) {
+        upperBody.addOrReplaceChild(
+                name,
+                CubeListBuilder.create()
+                        .texOffs(128, 176).addBox(-1.6F, -2.6F, -1.3F, 3.2F, 1.8F, 2.6F)
+                        .texOffs(136, 176).addBox(-1.2F, -1.8F, 1.1F, 2.4F, 1.2F, 0.8F),
+                PartPose.offset(x, -27.0F, 14.5F)
+        );
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -200,7 +207,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 9.0F, 0.0F)
         );
 
-        // Flashing Warning Beacon on Cab Roof (Base mount + Amber Dome)
+        // Beacon housing. The lamp inside is the rotating light source.
         PartDefinition beaconBase = upperBody.addOrReplaceChild(
                 "beacon_base",
                 CubeListBuilder.create()
@@ -208,21 +215,16 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         .texOffs(86, 160).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 4.0F, 4.0F),
                 PartPose.offset(-10.0F, -27.0F, 12.0F)
         );
-
-        // Blinking strobe core: ON (bright yellow light) and OFF (dim amber)
         beaconBase.addOrReplaceChild(
-                "beacon_reflector_on",
+                "beacon_lamp",
                 CubeListBuilder.create()
-                        .texOffs(108, 160).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
+                        .texOffs(111, 162).addBox(-0.6F, -5.2F, 0.4F, 1.2F, 1.4F, 2.2F),
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        beaconBase.addOrReplaceChild(
-                "beacon_reflector_off",
-                CubeListBuilder.create()
-                        .texOffs(108, 152).addBox(-1.0F, -5.0F, -1.0F, 2.0F, 2.0F, 2.0F),
-                PartPose.offset(0.0F, 0.0F, 0.0F)
-        );
+        // Two floodlights on the cab roof front lip. Lenses face the boom.
+        addWorkLamp(upperBody, "work_lamp_left", -15.0F);
+        addWorkLamp(upperBody, "work_lamp_right", -5.0F);
 
         // ── 3. Boom ───────────────────────────────────────────────────
         PartDefinition boom = upperBody.addOrReplaceChild(
@@ -394,16 +396,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
             activeContents.yScale = yScale;
         }
 
-        // Flashing yellow warning beacon: rotates and blinks bright yellow light during operation
-        if (state.isOperating) {
-            this.beaconReflectorOn.yRot = state.beaconSpin;
-            this.beaconReflectorOff.yRot = state.beaconSpin;
-            // Alternates blinking between bright flash and dim amber every few ticks
-            this.beaconReflectorOn.visible = state.beaconFlash;
-            this.beaconReflectorOff.visible = !state.beaconFlash;
-        } else {
-            this.beaconReflectorOn.visible = false;
-            this.beaconReflectorOff.visible = false;
-        }
+        this.beaconLamp.visible = state.isOperating;
+        this.beaconLamp.yRot = state.isOperating ? state.beaconSpin : 0.0F;
     }
 }

@@ -15,7 +15,11 @@ import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
 import com.piotrek.groundworksexcavator.excavation.HydraulicHammerController;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
+import com.piotrek.groundworksexcavator.vehicle.BeaconLight;
+import com.piotrek.groundworksexcavator.vehicle.CabSeatFacing;
+import com.piotrek.groundworksexcavator.vehicle.ExhaustPuffs;
 import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
+import com.piotrek.groundworksexcavator.vehicle.WorkLights;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -38,6 +42,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -97,6 +104,10 @@ public class GroundworksExcavatorEntity extends Entity {
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> IS_HAMMERING =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> AUTO_ACTIVE =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> HORN_HELD =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Float> MACHINE_LOAD =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
 
@@ -139,6 +150,12 @@ public class GroundworksExcavatorEntity extends Entity {
     // Last recorded excavation / deposit amounts (for debug command & telemetry)
     private int lastExcavatedUnits;
     private int lastDepositedUnits;
+    private final java.util.ArrayList<BlockPos> beaconLights = new java.util.ArrayList<>();
+    private final java.util.ArrayList<BlockPos> workLights = new java.util.ArrayList<>();
+    private int beaconLightStep = -1;
+    private float trackedCabFacing = Float.NaN;
+    private float smoothedUpperYaw = Float.NaN;
+    private float smoothedUpperYawO = Float.NaN;
     private boolean cabinBlockedLastTick;
 
     public GroundworksExcavatorEntity(EntityType<?> type, Level level) {
@@ -168,7 +185,34 @@ public class GroundworksExcavatorEntity extends Entity {
         builder.define(IS_DIGGING, false);
         builder.define(IS_DUMPING, false);
         builder.define(IS_HAMMERING, false);
+        builder.define(AUTO_ACTIVE, false);
+        builder.define(HORN_HELD, false);
         builder.define(MACHINE_LOAD, 0.0F);
+    }
+
+    /** White exhaust farts from 5% to 20% load. Rare and tiny at 5%, many small puffs at 20%. */
+    private void spawnLightExhaustPuffs(float load) {
+        int count = ExhaustPuffs.whitePuffCount(load, this.tickCount);
+        if (count == 0) {
+            return;
+        }
+        Vec3 exhaustPos = ArmKinematics.getExhaustWorldPosition(
+                this.position(), this.getYRot(), this.getUpperYaw()
+        );
+        float blend = (load - ExhaustPuffs.MIN_LOAD) / (ExhaustPuffs.MAX_LOAD - ExhaustPuffs.MIN_LOAD);
+        double spread = 0.004D + 0.010D * blend;
+        double rise = 0.010D + 0.012D * blend;
+        for (int i = 0; i < count; i++) {
+            this.level().addParticle(
+                    ParticleTypes.WHITE_SMOKE,
+                    exhaustPos.x,
+                    exhaustPos.y + 0.08D,
+                    exhaustPos.z,
+                    (Math.random() - 0.5D) * spread,
+                    rise + Math.random() * 0.008D,
+                    (Math.random() - 0.5D) * spread
+            );
+        }
     }
 
     @Override
@@ -176,6 +220,7 @@ public class GroundworksExcavatorEntity extends Entity {
         super.tick();
 
         if (this.level().isClientSide()) {
+            this.advanceVisualUpperYaw();
             // Client-side visual sync container
             this.bucket.setCapacity(this.entityData.get(CAPACITY));
             this.bucket.setDirect(
@@ -183,26 +228,17 @@ public class GroundworksExcavatorEntity extends Entity {
                     this.entityData.get(STORED_UNITS)
             );
 
-            // Flashing warning beacon ambient light pulse when operating
-            // Emits clean electrical/glow warning flashes instead of flame fire
-            if (this.isOperating() && (this.tickCount % 6 == 0)) {
-                Vec3 beaconPos = ArmKinematics.getBeaconWorldPosition(
-                        this.position(), this.getYRot(), this.getUpperYaw()
-                );
-                this.level().addParticle(
-                        ParticleTypes.ELECTRIC_SPARK,
-                        beaconPos.x, beaconPos.y + 0.15D, beaconPos.z,
-                        0.0D, 0.02D, 0.0D
-                );
-            }
-
             // Diesel engine exhaust smoke emission:
             // The exhaust pipe is located on the rear deck of the upper body and rotates with the turntable!
             // Load tiers:
-            // > 30%: mała ilość jasno szarego dymu (WHITE_SMOKE co kilka ticków)
-            // > 60%: średnia ilość ciemno szarego dymu (SMOKE co 2 ticki)
-            // == 100% (przeciążenie): czarny dym z wydechu (LARGE_SMOKE / SMOKE każdy tick)
+            // 5%..20%: white puffs, rare and tiny at 5%, many small puffs at 20%
+            // > 30%: small amount of light grey smoke
+            // > 60%: medium dark grey smoke
+            // ~100%: black overload smoke
             float clientLoad = this.getMachineLoad();
+            if (this.isOperating()) {
+                spawnLightExhaustPuffs(clientLoad);
+            }
             if (this.isOperating() && clientLoad > 0.30F) {
                 Vec3 exhaustPos = ArmKinematics.getExhaustWorldPosition(
                         this.position(), this.getYRot(), this.getUpperYaw()
@@ -242,6 +278,9 @@ public class GroundworksExcavatorEntity extends Entity {
             }
             return;
         }
+
+        updateBeaconLight();
+        updateWorkLights();
 
         ServerLevel serverLevel = (ServerLevel) this.level();
         Entity driver = this.getControllingPassenger();
@@ -300,6 +339,7 @@ public class GroundworksExcavatorEntity extends Entity {
         } else {
             this.resetAutomaticTruckAdvanceSequence();
         }
+        this.entityData.set(AUTO_ACTIVE, this.autoTrenchController.isActive());
 
         // 1. Process driver input decay
         if (this.inputFreshTicks > 0) {
@@ -318,6 +358,8 @@ public class GroundworksExcavatorEntity extends Entity {
             this.inputStick = 0.0F;
             this.inputBucket = 0.0F;
             this.inputHammerActive = false;
+            this.hornInputLast = false;
+            this.entityData.set(HORN_HELD, false);
         }
 
         // 2. Update hydraulic joint angles gradually
@@ -380,6 +422,9 @@ public class GroundworksExcavatorEntity extends Entity {
             targetLoad = 0.30F;
         } else if (Math.abs(this.inputBoom) > 0.01F || Math.abs(this.inputStick) > 0.01F || Math.abs(this.inputBucket) > 0.01F) {
             targetLoad = 0.20F;
+        }
+        if (this.autoTrenchController.isActive()) {
+            targetLoad = Math.max(targetLoad, 0.40F);
         }
 
         // Smooth load ramp up and decay
@@ -588,23 +633,30 @@ public class GroundworksExcavatorEntity extends Entity {
      * C is a horn while a digging bucket is installed. The hydraulic hammer keeps
      * its existing C behavior when the hammer attachment is selected.
      */
+    public boolean isHornHeld() {
+        return this.entityData.get(HORN_HELD);
+    }
+
     public void setHornInput(boolean active) {
-        if (this.isHammerAttachment()) {
+        if (this.isHammerAttachment() || this.level().isClientSide()) {
             this.hornInputLast = false;
+            if (!this.level().isClientSide()) {
+                this.entityData.set(HORN_HELD, false);
+            }
             return;
         }
 
         boolean risingEdge = active && !this.hornInputLast;
         this.hornInputLast = active;
+        this.entityData.set(HORN_HELD, active);
 
-        if (risingEdge && !this.level().isClientSide()) {
-            this.honkAndDispatchNearestTruck((ServerLevel) this.level());
+        if (risingEdge) {
+            this.dispatchNearestTruckOnDoubleHorn((ServerLevel) this.level());
         }
     }
 
-    private void honkAndDispatchNearestTruck(ServerLevel level) {
-        this.playHorn(level);
-
+    /** Two presses of C within the window advance the nearest truck. The held tone is a client loop. */
+    private void dispatchNearestTruckOnDoubleHorn(ServerLevel level) {
         long now = level.getGameTime();
         if (now - this.lastHornTick <= DOUBLE_HORN_WINDOW_TICKS) {
             IMobileWorldGranularContainer nearest = this.findNearestMobileContainer(
@@ -627,8 +679,8 @@ public class GroundworksExcavatorEntity extends Entity {
                 getY() + 1.4D,
                 getZ(),
                 GroundworksExcavatorMod.TRUCK_HORN_SHORT,
-                SoundSource.BLOCKS,
-                1.15F,
+                SoundSource.NEUTRAL,
+                1.6F,
                 1.0F
         );
     }
@@ -640,8 +692,8 @@ public class GroundworksExcavatorEntity extends Entity {
                 getY() + 1.4D,
                 getZ(),
                 GroundworksExcavatorMod.TRUCK_HORN_LONG,
-                SoundSource.BLOCKS,
-                1.25F,
+                SoundSource.NEUTRAL,
+                1.8F,
                 1.0F
         );
     }
@@ -896,11 +948,12 @@ public class GroundworksExcavatorEntity extends Entity {
         this.fullTruckHornEntityId = -1;
         this.resetAutomaticTruckAdvanceSequence();
         this.autoTrenchController.stop();
+        this.entityData.set(AUTO_ACTIVE, false);
         this.setControlInputs(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
     }
 
     public boolean isAutoTrenchActive() {
-        return this.autoTrenchController.isActive();
+        return this.entityData.get(AUTO_ACTIVE);
     }
 
     public boolean isAutoTrenchDumpTruckMode() {
@@ -1000,11 +1053,82 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     @Override
+    protected void positionRider(Entity passenger, MoveFunction callback) {
+        super.positionRider(passenger, callback);
+        alignPassengerToCab(passenger);
+    }
+
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        this.trackedCabFacing = Float.NaN;
+        this.smoothedUpperYaw = Float.NaN;
+        this.smoothedUpperYawO = Float.NaN;
+    }
+
+    /**
+     * Torso stays on the cab front. The local rider's look gets the cab delta
+     * so the camera turns with the cab; the head may only offset from that facing.
+     * Remote copies already received that look, so they only lock the body.
+     */
+    private void alignPassengerToCab(Entity passenger) {
+        float cab = ArmKinematics.getCabFacingYaw(
+                this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.upperYawForRider()
+        );
+        boolean local = passenger instanceof Player player && player.isLocalPlayer();
+        if (local) {
+            boolean first = Float.isNaN(this.trackedCabFacing);
+            CabSeatFacing.Look look = CabSeatFacing.align(cab, this.trackedCabFacing, passenger.getYRot(), first);
+            this.trackedCabFacing = look.trackedCabYaw();
+            passenger.setYRot(look.headYaw());
+            passenger.setYHeadRot(look.headYaw());
+            passenger.setYBodyRot(look.bodyYaw());
+            return;
+        }
+        float offset = Mth.clamp(
+                Mth.wrapDegrees(passenger.getYRot() - cab), -CabSeatFacing.MAX_HEAD_OFFSET, CabSeatFacing.MAX_HEAD_OFFSET
+        );
+        passenger.setYBodyRot(cab);
+        passenger.setYHeadRot(cab + offset);
+    }
+
+    /**
+     * Synced cab yaw arrives in packets and can skip several turn steps.
+     * The rider's head and seat follow this eased yaw so that refresh does not jump.
+     */
+    private void advanceVisualUpperYaw() {
+        float target = this.getUpperYaw();
+        if (Float.isNaN(this.smoothedUpperYaw)) {
+            this.smoothedUpperYaw = target;
+            this.smoothedUpperYawO = target;
+            return;
+        }
+        this.smoothedUpperYawO = this.smoothedUpperYaw;
+        this.smoothedUpperYaw = CabSeatFacing.stepToward(
+                this.smoothedUpperYaw, target, ArmKinematics.CAB_TURN_SPEED, 40.0F
+        );
+    }
+
+    private float upperYawForRider() {
+        if (this.level().isClientSide() && !Float.isNaN(this.smoothedUpperYaw)) {
+            return this.smoothedUpperYaw;
+        }
+        return this.getUpperYaw();
+    }
+
+    public float getVisualUpperYaw(float partialTick) {
+        if (!this.level().isClientSide() || Float.isNaN(this.smoothedUpperYaw)) {
+            return this.getUpperYaw();
+        }
+        return Mth.rotLerp(partialTick, this.smoothedUpperYawO, this.smoothedUpperYaw);
+    }
+
+    @Override
     public Vec3 getPassengerRidingPosition(Entity passenger) {
         return ArmKinematics.getDriverSeatWorldPosition(
                 this.position(),
                 this.getYRot(),
-                this.getUpperYaw()
+                this.upperYawForRider()
         );
     }
 
@@ -1080,7 +1204,8 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     public boolean isOperating() {
-        return this.getFirstPassenger() != null
+        return this.isAutoTrenchActive()
+                || this.getFirstPassenger() != null
                 || Math.abs(this.getTrackLeftSpeed()) > 0.001F
                 || Math.abs(this.getTrackRightSpeed()) > 0.001F
                 || this.isDigging()
@@ -1249,6 +1374,31 @@ public class GroundworksExcavatorEntity extends Entity {
         this.entityData.set(VEHICLE_ROLL, input.getFloatOr("VehicleRoll", 0.0F));
 
         this.bucket.load(input);
+        this.beaconLights.clear();
+        int lightCount = input.getIntOr("BeaconLightCount", 0);
+        for (int i = 0; i < lightCount && i < 16; i++) {
+            this.beaconLights.add(new BlockPos(
+                    input.getIntOr("BeaconLightX" + i, 0),
+                    input.getIntOr("BeaconLightY" + i, 0),
+                    input.getIntOr("BeaconLightZ" + i, 0)
+            ));
+        }
+        if (lightCount == 0 && input.getBooleanOr("HasBeaconLight", false)) {
+            this.beaconLights.add(new BlockPos(
+                    input.getIntOr("BeaconLightX", 0),
+                    input.getIntOr("BeaconLightY", 0),
+                    input.getIntOr("BeaconLightZ", 0)
+            ));
+        }
+        this.workLights.clear();
+        int workCount = input.getIntOr("WorkLightCount", 0);
+        for (int i = 0; i < workCount && i < 16; i++) {
+            this.workLights.add(new BlockPos(
+                    input.getIntOr("WorkLightX" + i, 0),
+                    input.getIntOr("WorkLightY" + i, 0),
+                    input.getIntOr("WorkLightZ" + i, 0)
+            ));
+        }
         this.entityData.set(CAPACITY, this.bucket.capacity());
         this.entityData.set(STORED_UNITS, this.bucket.storedUnits());
         this.entityData.set(MATERIAL_ID, this.bucket.materialId());
@@ -1266,5 +1416,129 @@ public class GroundworksExcavatorEntity extends Entity {
         output.putFloat("VehicleRoll", this.getVehicleRoll());
 
         this.bucket.save(output);
+        output.putInt("BeaconLightCount", this.beaconLights.size());
+        for (int i = 0; i < this.beaconLights.size(); i++) {
+            BlockPos pos = this.beaconLights.get(i);
+            output.putInt("BeaconLightX" + i, pos.getX());
+            output.putInt("BeaconLightY" + i, pos.getY());
+            output.putInt("BeaconLightZ" + i, pos.getZ());
+        }
+        output.putInt("WorkLightCount", this.workLights.size());
+        for (int i = 0; i < this.workLights.size(); i++) {
+            BlockPos pos = this.workLights.get(i);
+            output.putInt("WorkLightX" + i, pos.getX());
+            output.putInt("WorkLightY" + i, pos.getY());
+            output.putInt("WorkLightZ" + i, pos.getZ());
+        }
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        if (!this.level().isClientSide()) {
+            clearBeaconLight();
+            clearWorkLights();
+        }
+        super.remove(reason);
+    }
+
+    /**
+     * The lamp is the source. Invisible light blocks sit in the direction it faces
+     * and jump with each step of the spin, so the lit ground sweeps like a beacon.
+     */
+    private void updateBeaconLight() {
+        if (!this.isOperating()) {
+            clearBeaconLight();
+            return;
+        }
+        float spin = BeaconLight.spin(this.tickCount, 0.0F);
+        int step = BeaconLight.step(spin);
+        if (step == this.beaconLightStep) {
+            return;
+        }
+        this.beaconLightStep = step;
+        Vec3 facing = ArmKinematics.getBeaconLampFacing(
+                this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw(), spin
+        );
+        Vec3 lamp = ArmKinematics.getBeaconLampWorldPosition(
+                this.position(), this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw()
+        );
+        syncLightBlocks(this.beaconLights, BeaconLight.lightPositions(lamp, this.position(), facing), BeaconLight.LEVEL);
+    }
+
+    /**
+     * Two roof lamps throw a fixed strip of light in front of the boom.
+     * They follow the cab, and they go out when the machine is idle.
+     */
+    private void updateWorkLights() {
+        if (!this.isOperating()) {
+            clearWorkLights();
+            return;
+        }
+        float yaw = ArmKinematics.getCabFacingYaw(
+                this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw()
+        );
+        double rad = Math.toRadians(yaw);
+        Vec3 facing = new Vec3(-Math.sin(rad), 0.0D, Math.cos(rad));
+        Vec3 left = ArmKinematics.getUpperBodyPoint(
+                this.position(), this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw(),
+                WorkLights.LEFT[0], WorkLights.LEFT[1], WorkLights.LEFT[2]
+        );
+        Vec3 right = ArmKinematics.getUpperBodyPoint(
+                this.position(), this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw(),
+                WorkLights.RIGHT[0], WorkLights.RIGHT[1], WorkLights.RIGHT[2]
+        );
+        syncLightBlocks(this.workLights, WorkLights.lightPositions(left, right, this.position(), facing), WorkLights.LEVEL);
+    }
+
+    private void syncLightBlocks(java.util.List<BlockPos> held, java.util.List<BlockPos> next, int level) {
+        for (int i = held.size() - 1; i >= 0; i--) {
+            BlockPos old = held.get(i);
+            if (next.contains(old)) {
+                continue;
+            }
+            held.remove(i);
+            releaseLight(old);
+        }
+        for (BlockPos pos : next) {
+            if (held.contains(pos) || !this.level().isLoaded(pos)) {
+                continue;
+            }
+            BlockState state = this.level().getBlockState(pos);
+            if (state.isAir()) {
+                this.level().setBlock(
+                        pos,
+                        Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, level),
+                        3
+                );
+                held.add(pos);
+            } else if (state.is(Blocks.LIGHT)) {
+                held.add(pos);
+            }
+        }
+    }
+
+    private void clearBeaconLight() {
+        clearHeldLights(this.beaconLights);
+        this.beaconLightStep = -1;
+    }
+
+    private void clearWorkLights() {
+        clearHeldLights(this.workLights);
+    }
+
+    private void clearHeldLights(java.util.List<BlockPos> held) {
+        for (int i = held.size() - 1; i >= 0; i--) {
+            BlockPos pos = held.remove(i);
+            releaseLight(pos);
+        }
+    }
+
+    private void releaseLight(BlockPos pos) {
+        if (this.beaconLights.contains(pos) || this.workLights.contains(pos)) {
+            return;
+        }
+        if (this.level().isLoaded(pos) && this.level().getBlockState(pos).is(Blocks.LIGHT)) {
+            this.level().setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+        }
     }
 }

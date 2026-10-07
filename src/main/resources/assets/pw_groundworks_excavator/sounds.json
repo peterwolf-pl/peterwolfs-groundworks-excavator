@@ -2,7 +2,18 @@
   "engine_loop": {
     "subtitle": "subtitles.pw_groundworks_excavator.engine_loop",
     "sounds": [
-      "pw_groundworks_excavator:engine_loop"
+      {
+        "name": "pw_groundworks_excavator:engine_loop",
+        "attenuation_distance": 14
+      }
+    ]
+  },
+  "engine_load": {
+    "sounds": [
+      {
+        "name": "pw_groundworks_excavator:engine_load",
+        "attenuation_distance": 14
+      }
     ]
   },
   "truck_horn_short": {
@@ -15,6 +26,15 @@
     "subtitle": "subtitles.pw_groundworks_excavator.truck_horn",
     "sounds": [
       "pw_groundworks_excavator:truck_horn_long"
+    ]
+  },
+  "truck_horn_loop": {
+    "subtitle": "subtitles.pw_groundworks_excavator.truck_horn",
+    "sounds": [
+      {
+        "name": "pw_groundworks_excavator:truck_horn_loop",
+        "attenuation_distance": 64
+      }
     ]
   }
 }

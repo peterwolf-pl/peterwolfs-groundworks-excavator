@@ -4,10 +4,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import org.joml.Quaternionf;
 import com.piotrek.groundworksexcavator.GroundworksExcavatorMod;
+import com.piotrek.groundworksexcavator.arm.ArmKinematics;
 import com.piotrek.groundworksexcavator.client.GroundworksExcavatorClient;
 import com.piotrek.groundworksexcavator.client.model.ExcavatorModel;
 import com.piotrek.groundworksexcavator.client.model.HydraulicHammerModel;
 import com.piotrek.groundworksexcavator.entity.GroundworksExcavatorEntity;
+import com.piotrek.groundworksexcavator.vehicle.BeaconLight;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -47,7 +49,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
         state.baseYaw = entity.getYRot();
         state.basePitch = entity.getVehiclePitch();
         state.baseRoll = entity.getVehicleRoll();
-        state.upperYaw = entity.getUpperYaw();
+        state.upperYaw = entity.getVisualUpperYaw(partialTick);
         state.boomAngle = entity.getBoomAngle();
         state.stickAngle = entity.getStickAngle();
         state.bucketAngle = entity.getBucketAngle();
@@ -71,8 +73,7 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
         state.isOperating = entity.isOperating();
         state.machineLoad = entity.getMachineLoad();
-        state.beaconSpin = (entity.tickCount + partialTick) * 0.75F;
-        state.beaconFlash = state.isOperating && ((entity.tickCount / 4) % 2 == 0);
+        state.beaconSpin = BeaconLight.spin(entity.tickCount, partialTick);
     }
 
     @Override
