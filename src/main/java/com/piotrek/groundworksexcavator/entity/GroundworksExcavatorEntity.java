@@ -116,6 +116,7 @@ public class GroundworksExcavatorEntity extends Entity {
     private boolean inputHammerActive;
     private boolean hornInputLast;
     private long lastHornTick = Long.MIN_VALUE / 4L;
+    private int fullTruckHornEntityId = -1;
     private int autoTruckAdvanceStage;
     private int autoTruckHornDelayTicks;
     private int inputFreshTicks;
@@ -273,10 +274,20 @@ public class GroundworksExcavatorEntity extends Entity {
             } else {
                 this.resetAutomaticTruckAdvanceSequence();
 
+                IMobileWorldGranularContainer dumpReceiver =
+                        this.autoTrenchController.isDumpTruckMode()
+                                && this.autoTrenchController.phase() == AutoTrenchController.Phase.DUMP_RIGHT
+                                ? this.findDumpTruckUnderPlannedRearDumpLip(serverLevel)
+                                : null;
+
+                if (dumpReceiver != null) {
+                    this.updateFullTruckSignal(serverLevel, dumpReceiver);
+                }
+
                 boolean dumpTruckAtDumpPoint =
                         !this.autoTrenchController.isDumpTruckMode()
                                 || this.autoTrenchController.phase() != AutoTrenchController.Phase.DUMP_RIGHT
-                                || this.findDumpTruckUnderPlannedRearDumpLip(serverLevel) != null;
+                                || (dumpReceiver != null && !this.isReceiverFull(dumpReceiver));
 
                 controls = this.autoTrenchController.tick(
                         snapshot,
@@ -515,7 +526,7 @@ public class GroundworksExcavatorEntity extends Entity {
             } else if (this.autoTrenchController.isDumpTruckMode()) {
                 IMobileWorldGranularContainer dumpReceiver =
                         this.findDumpTruckUnderPlannedRearDumpLip(serverLevel);
-                dumpResult = dumpReceiver != null
+                dumpResult = dumpReceiver != null && !this.isReceiverFull(dumpReceiver)
                         ? BucketDumpingController.tickToReceiver(
                                 serverLevel,
                                 this,
@@ -524,6 +535,10 @@ public class GroundworksExcavatorEntity extends Entity {
                                 dumpReceiver
                         )
                         : BucketDumpingController.DumpTickResult.NONE;
+
+                if (dumpReceiver != null) {
+                    this.updateFullTruckSignal(serverLevel, dumpReceiver);
+                }
             } else {
                 dumpResult = BucketDumpingController.tick(
                         serverLevel,
@@ -614,10 +629,49 @@ public class GroundworksExcavatorEntity extends Entity {
                 getZ(),
                 SoundEvents.RAID_HORN,
                 SoundSource.BLOCKS,
-                0.55F,
-                1.45F,
+                1.0F,
+                1.55F,
                 level.getRandom().nextLong()
         );
+    }
+
+    private void playLongHorn(ServerLevel level) {
+        level.playSeededSound(
+                null,
+                getX(),
+                getY() + 1.4D,
+                getZ(),
+                SoundEvents.RAID_HORN,
+                SoundSource.BLOCKS,
+                1.25F,
+                0.82F,
+                level.getRandom().nextLong()
+        );
+    }
+
+    private boolean isReceiverFull(IWorldGranularContainer receiver) {
+        return receiver != null
+                && receiver.capacity() > 0
+                && receiver.storedUnits() >= receiver.capacity();
+    }
+
+    private void updateFullTruckSignal(
+            ServerLevel level,
+            IMobileWorldGranularContainer receiver
+    ) {
+        if (!(receiver instanceof Entity receiverEntity)) {
+            return;
+        }
+
+        int receiverId = receiverEntity.getId();
+        if (this.isReceiverFull(receiver)) {
+            if (this.fullTruckHornEntityId != receiverId) {
+                this.fullTruckHornEntityId = receiverId;
+                this.playLongHorn(level);
+            }
+        } else if (this.fullTruckHornEntityId == receiverId) {
+            this.fullTruckHornEntityId = -1;
+        }
     }
 
     /**
@@ -830,6 +884,7 @@ public class GroundworksExcavatorEntity extends Entity {
         this.setBucketType(BUCKET_LARGE);
         this.setControlMode(MODE_EXCAVATOR);
         this.cabinBlockedLastTick = false;
+        this.fullTruckHornEntityId = -1;
         this.resetAutomaticTruckAdvanceSequence();
         this.autoTrenchController.startWithDumpTruck(
                 depthBlocks,
@@ -841,6 +896,7 @@ public class GroundworksExcavatorEntity extends Entity {
 
     public void stopAutoTrench() {
         this.cabinBlockedLastTick = false;
+        this.fullTruckHornEntityId = -1;
         this.resetAutomaticTruckAdvanceSequence();
         this.autoTrenchController.stop();
         this.setControlInputs(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
