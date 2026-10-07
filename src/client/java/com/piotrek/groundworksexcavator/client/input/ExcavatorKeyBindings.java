@@ -105,7 +105,7 @@ public final class ExcavatorKeyBindings {
                 CATEGORY
         ));
 
-        // Hydraulic hammer: hold C for momentary work, double-tap C for latch.
+        // C is contextual: horn with buckets, hydraulic hammer control with hammer attachment.
         KEY_HAMMER = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.hammer",
                 InputConstants.Type.KEYBOARD,
