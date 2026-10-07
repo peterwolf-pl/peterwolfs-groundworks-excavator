@@ -66,6 +66,27 @@ public final class ExcavatorCommand {
                                                                                         FloatArgumentType.getFloat(ctx, "expandLeftBlocks"),
                                                                                         IntegerArgumentType.getInteger(ctx, "expandCycles")
                                                                                 ))))))))
+                                .then(Commands.literal("fleet")
+                                        .executes(ctx -> startFleetAutoTrench(ctx.getSource(), 1.0F, 2, 0.0F, 0))
+                                        .then(Commands.literal("start")
+                                                .executes(ctx -> startFleetAutoTrench(ctx.getSource(), 1.0F, 2, 0.0F, 0))
+                                                .then(Commands.argument("depth", FloatArgumentType.floatArg(0.2F, 3.5F))
+                                                        .then(Commands.argument("cycles", IntegerArgumentType.integer(1, 20))
+                                                                .executes(ctx -> startFleetAutoTrench(
+                                                                        ctx.getSource(),
+                                                                        FloatArgumentType.getFloat(ctx, "depth"),
+                                                                        IntegerArgumentType.getInteger(ctx, "cycles"),
+                                                                        0.0F, 0
+                                                                ))
+                                                                .then(Commands.argument("expandLeftBlocks", FloatArgumentType.floatArg(0.0F, 4.0F))
+                                                                        .then(Commands.argument("expandCycles", IntegerArgumentType.integer(1, 20))
+                                                                                .executes(ctx -> startFleetAutoTrench(
+                                                                                        ctx.getSource(),
+                                                                                        FloatArgumentType.getFloat(ctx, "depth"),
+                                                                                        IntegerArgumentType.getInteger(ctx, "cycles"),
+                                                                                        FloatArgumentType.getFloat(ctx, "expandLeftBlocks"),
+                                                                                        IntegerArgumentType.getInteger(ctx, "expandCycles")
+                                                                                ))))))))
                                 .then(Commands.literal("stop")
                                         .executes(ctx -> stopAutoTrench(ctx.getSource())))
                                 .then(Commands.literal("status")
@@ -161,6 +182,26 @@ public final class ExcavatorCommand {
         return 1;
     }
 
+    private static int startFleetAutoTrench(
+            CommandSourceStack source,
+            float depthBlocks,
+            int cycles,
+            float expandLeft,
+            int expandCycles
+    ) {
+        GroundworksExcavatorEntity excavator = occupiedExcavator(source);
+        if (excavator == null) return 0;
+
+        excavator.startAutoTrenchFleet(depthBlocks, cycles, expandLeft, expandCycles);
+        source.sendSuccess(() -> Component.literal(String.format(
+                "AutoTrench Fleet rozpoczęty: głębokość %.2f bloku/ów, %d cykli środkiem, poszerzenie w lewo %.1f / %d. "
+                        + "Koparka wybiera najbardziej wypełnioną osiągalną wywrotkę w promieniu 14 bloków, "
+                        + "obraca wieżyczkę nad jej skrzynię i po zapełnieniu przełącza się na następną. "
+                        + "Podwójny klakson przesuwa wszystkie pobliskie wywrotki o 1 blok.",
+                depthBlocks, cycles, expandLeft, expandCycles)), false);
+        return 1;
+    }
+
     private static int stopAutoTrench(CommandSourceStack source) {
         GroundworksExcavatorEntity excavator = activeOrOccupiedExcavator(source);
         if (excavator == null) return 0;
@@ -173,8 +214,9 @@ public final class ExcavatorCommand {
         GroundworksExcavatorEntity excavator = activeOrOccupiedExcavator(source);
         if (excavator == null) return 0;
         source.sendSuccess(() -> Component.literal(String.format(
-                "Auto trench: active=%b, dumpTruckMode=%b, phase=%s, completed=%d, targetDepth=%.2fm, cyclesAtStation=%d/%d, inLeftPass=%b, expandLeft=%.1f (cycles=%d)",
+                "Auto trench: active=%b, dumpTruckMode=%b, fleetMode=%b, phase=%s, completed=%d, targetDepth=%.2fm, cyclesAtStation=%d/%d, inLeftPass=%b, expandLeft=%.1f (cycles=%d)",
                 excavator.isAutoTrenchActive(), excavator.isAutoTrenchDumpTruckMode(),
+                excavator.isAutoTrenchFleetMode(),
                 excavator.getAutoTrenchPhase(),
                 excavator.getAutoTrenchCompletedSections(),
                 excavator.getAutoTrenchMaxDepth(),

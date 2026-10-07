@@ -170,12 +170,46 @@ public final class BucketDumpingController {
             BucketPose currentPose,
             IWorldGranularContainer receiver
     ) {
+        return tickToReceiver(level, source, bucket, currentPose, receiver, true);
+    }
+
+    /**
+     * Fleet AutoTrench transfer. Material is capped to the receiver's remaining
+     * capacity, so a nearly full truck is topped off without spilling the rest.
+     * Any material left in the bucket can then be carried to the next truck.
+     */
+    public static DumpTickResult tickToReceiverWithoutOverflow(
+            ServerLevel level,
+            @Nullable Entity source,
+            BucketMaterialContainer bucket,
+            BucketPose currentPose,
+            IWorldGranularContainer receiver
+    ) {
+        return tickToReceiver(level, source, bucket, currentPose, receiver, false);
+    }
+
+    private static DumpTickResult tickToReceiver(
+            ServerLevel level,
+            @Nullable Entity source,
+            BucketMaterialContainer bucket,
+            BucketPose currentPose,
+            IWorldGranularContainer receiver,
+            boolean allowReceiverOverflow
+    ) {
         if (receiver == null || bucket.isEmpty() || currentPose == null) {
             return DumpTickResult.NONE;
         }
 
         float tilt = currentPose.dumpTiltDegrees();
         if (tilt < ArmKinematics.DUMP_THRESHOLD_DEG) {
+            return DumpTickResult.NONE;
+        }
+
+        // Fleet mode validates the live release point while the bucket opens.
+        // Keep the load in the bucket until the current lip actually projects
+        // inside the selected truck bed. The legacy receiver mode keeps its
+        // original stable-check behavior.
+        if (!allowReceiverOverflow && !receiver.canReceiveAt(currentPose.lip())) {
             return DumpTickResult.NONE;
         }
 
@@ -187,11 +221,12 @@ public final class BucketDumpingController {
                 1.0F
         );
         int flowRate = Math.round(Mth.lerp(progress, (float) minFlow, (float) maxFlow));
-
-        // Do not pre-clamp to receiverRoom here. The receiver owns its overflow
-        // semantics. A dump truck accepts material up to the visual bed-brim
-        // threshold and can spill only the excess over its physical side walls.
         int toDump = Math.min(bucket.storedUnits(), flowRate);
+
+        if (!allowReceiverOverflow) {
+            int receiverRoom = Math.max(0, receiver.capacity() - receiver.storedUnits());
+            toDump = Math.min(toDump, receiverRoom);
+        }
 
         if (toDump <= 0) {
             return DumpTickResult.NONE;

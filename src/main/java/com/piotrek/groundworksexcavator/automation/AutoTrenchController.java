@@ -86,7 +86,8 @@ public final class AutoTrenchController {
 
     public enum DumpTarget {
         RIGHT_GROUND,
-        REAR_DUMP_TRUCK
+        REAR_DUMP_TRUCK,
+        FLEET_DUMP_TRUCK
     }
 
     public enum Phase {
@@ -179,6 +180,9 @@ public final class AutoTrenchController {
 
     private boolean active;
     private DumpTarget dumpTarget = DumpTarget.RIGHT_GROUND;
+    private float dumpTruckYaw = REAR_DUMP_YAW;
+    private float dumpTruckBoom = REAR_DUMP_CHECK_BOOM;
+    private float dumpTruckStick = DUMP_STICK;
     private boolean dumpTruckAtDumpPointThisTick = true;
     private Phase phase = Phase.POSITION_FOR_CUT;
     private int settledTicks;
@@ -214,6 +218,10 @@ public final class AutoTrenchController {
         startInternal(targetDepthBlocks, cutsCenter, expandLeftBlocks, cutsLeft, DumpTarget.REAR_DUMP_TRUCK);
     }
 
+    public void startWithFleetDumpTruck(float targetDepthBlocks, int cutsCenter, float expandLeftBlocks, int cutsLeft) {
+        startInternal(targetDepthBlocks, cutsCenter, expandLeftBlocks, cutsLeft, DumpTarget.FLEET_DUMP_TRUCK);
+    }
+
     private void startInternal(
             float targetDepthBlocks,
             int cutsCenter,
@@ -223,6 +231,9 @@ public final class AutoTrenchController {
     ) {
         this.active = true;
         this.dumpTarget = target;
+        this.dumpTruckYaw = REAR_DUMP_YAW;
+        this.dumpTruckBoom = REAR_DUMP_CHECK_BOOM;
+        this.dumpTruckStick = DUMP_STICK;
         this.phase = Phase.POSITION_FOR_CUT;
         this.maxDiggingDepth = Math.max(0.2F, targetDepthBlocks);
         this.maxCutsPerStation = Math.max(1, cutsCenter);
@@ -580,9 +591,7 @@ public final class AutoTrenchController {
 
     private Controls liftAndSwingRight(Snapshot state) {
         float currentWorkYaw = currentWorkCabinYaw();
-        float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                ? REAR_DUMP_YAW
-                : RIGHT_DUMP_YAW;
+        float dumpYaw = currentDumpYaw();
 
         if (state.storedUnits() <= 0) {
             changePhase(Phase.POSITION_FOR_CUT);
@@ -597,7 +606,7 @@ public final class AutoTrenchController {
         }
 
         handleRotationObstacle(state, dumpYaw);
-        float targetBoom = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+        float targetBoom = usesTruckReceiver()
                 ? Math.min(REAR_MAX_TRANSIT_BOOM, SAFE_BOOM + swingObstacleBoomBoost)
                 : Math.min(ArmKinematics.BOOM_MAX, SAFE_BOOM + swingObstacleBoomBoost);
 
@@ -610,7 +619,7 @@ public final class AutoTrenchController {
 
         // 2. Obrót wieżyczki w prawo dopuszczamy dopiero, gdy łyżka jest domknięta
         //    i wysięgnik podniósł urobek ponad poziom gruntu (boom >= 22.0F).
-        boolean armClearedGround = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+        boolean armClearedGround = usesTruckReceiver()
                 ? state.boom() >= REAR_TRANSIT_BOOM - 1.5F
                 : state.boom() >= 22.0F;
 
@@ -629,21 +638,21 @@ public final class AutoTrenchController {
     }
 
     private Controls dumpRight(Snapshot state) {
-        float dumpYaw = dumpTarget == DumpTarget.REAR_DUMP_TRUCK
-                ? REAR_DUMP_YAW
-                : RIGHT_DUMP_YAW;
+        float dumpYaw = currentDumpYaw();
 
-        if (dumpTarget == DumpTarget.REAR_DUMP_TRUCK) {
+        if (usesTruckReceiver()) {
             // Rear truck workflow:
             // 1. the 180-degree swing has already completed in LIFT_AND_SWING_RIGHT,
             // 2. lower/move the closed bucket into the dedicated +50-degree check pose,
             // 3. only there verify that a compatible truck is under the lip,
             // 4. keep exactly that pose and open the bucket only after the receiver exists.
+            float dumpBoom = currentDumpBoom();
+            float dumpStick = currentDumpStick();
             boolean armAtTruckCheckPose = atArmTarget(
                     state,
-                    REAR_DUMP_YAW,
-                    REAR_DUMP_CHECK_BOOM,
-                    DUMP_STICK
+                    dumpYaw,
+                    dumpBoom,
+                    dumpStick
             );
 
             if (!armAtTruckCheckPose) {
@@ -652,9 +661,9 @@ public final class AutoTrenchController {
                 // only during this approach.
                 return target(
                         state,
-                        REAR_DUMP_YAW,
-                        REAR_DUMP_CHECK_BOOM,
-                        DUMP_STICK,
+                        dumpYaw,
+                        dumpBoom,
+                        dumpStick,
                         HELD_BUCKET,
                         0.0F
                 );
@@ -670,9 +679,9 @@ public final class AutoTrenchController {
 
             Controls controls = target(
                     state,
-                    REAR_DUMP_YAW,
-                    REAR_DUMP_CHECK_BOOM,
-                    DUMP_STICK,
+                    dumpYaw,
+                    dumpBoom,
+                    dumpStick,
                     DUMP_BUCKET,
                     0.0F
             );
@@ -680,9 +689,9 @@ public final class AutoTrenchController {
             if (state.storedUnits() == 0
                     && atTarget(
                             state,
-                            REAR_DUMP_YAW,
-                            REAR_DUMP_CHECK_BOOM,
-                            DUMP_STICK,
+                            dumpYaw,
+                            dumpBoom,
+                            dumpStick,
                             DUMP_BUCKET
                     )) {
                 cutsAtCurrentStation++;
@@ -869,7 +878,58 @@ public final class AutoTrenchController {
     }
 
     public boolean isDumpTruckMode() {
-        return active && dumpTarget == DumpTarget.REAR_DUMP_TRUCK;
+        return active && usesTruckReceiver();
+    }
+
+    public boolean isFleetMode() {
+        return active && dumpTarget == DumpTarget.FLEET_DUMP_TRUCK;
+    }
+
+    public float dumpTruckYaw() {
+        return dumpTruckYaw;
+    }
+
+    public void setFleetDumpPose(float yaw, float boom, float stick) {
+        if (isFleetMode()) {
+            this.dumpTruckYaw = wrapDegrees(yaw);
+            this.dumpTruckBoom = Math.clamp(boom, ArmKinematics.BOOM_MIN, ArmKinematics.BOOM_MAX);
+            this.dumpTruckStick = Math.clamp(stick, ArmKinematics.STICK_MIN, ArmKinematics.STICK_MAX);
+        }
+    }
+
+    /**
+     * Called when a fleet receiver became full while material still remains in the bucket.
+     * The bucket is re-closed by LIFT_AND_SWING_RIGHT before the cab starts the new swing.
+     */
+    public void retargetFleetDump(float yaw, float boom, float stick) {
+        if (!isFleetMode()) {
+            return;
+        }
+        setFleetDumpPose(yaw, boom, stick);
+        if (this.phase == Phase.DUMP_RIGHT) {
+            changePhase(Phase.LIFT_AND_SWING_RIGHT);
+        }
+    }
+
+    private boolean usesTruckReceiver() {
+        return dumpTarget == DumpTarget.REAR_DUMP_TRUCK
+                || dumpTarget == DumpTarget.FLEET_DUMP_TRUCK;
+    }
+
+    private float currentDumpYaw() {
+        return usesTruckReceiver() ? dumpTruckYaw : RIGHT_DUMP_YAW;
+    }
+
+    private float currentDumpBoom() {
+        return dumpTarget == DumpTarget.FLEET_DUMP_TRUCK
+                ? dumpTruckBoom
+                : REAR_DUMP_CHECK_BOOM;
+    }
+
+    private float currentDumpStick() {
+        return dumpTarget == DumpTarget.FLEET_DUMP_TRUCK
+                ? dumpTruckStick
+                : DUMP_STICK;
     }
 
     public Phase phase() {
