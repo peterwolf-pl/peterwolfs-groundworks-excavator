@@ -84,7 +84,11 @@ public final class BucketDumpingController {
         int maxFlow = (bucket.capacity() >= 512) ? MAX_FLOW_RATE * 3 : MAX_FLOW_RATE;
         float progress = Mth.clamp((tilt - ArmKinematics.DUMP_THRESHOLD_DEG) / 45.0F, 0.0F, 1.0F);
         int flowRate = Math.round(Mth.lerp(progress, (float) minFlow, (float) maxFlow));
-        int toDump = Math.min(bucket.storedUnits(), flowRate);
+        int receiverRoom = Math.max(0, receiver.capacity() - receiver.storedUnits());
+        int toDump = Math.min(
+                Math.min(bucket.storedUnits(), flowRate),
+                receiverRoom
+        );
 
         if (toDump <= 0) {
             return DumpTickResult.NONE;
