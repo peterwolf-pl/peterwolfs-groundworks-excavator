@@ -16,6 +16,7 @@ public class TrackMovementController {
     public static final double BRAKING = 0.060D;
     public static final double TRACK_GAUGE = 2.1D; // Distance between tracks (meters)
     public static final double TRACK_LENGTH = 3.2D; // Contact length (meters)
+    private static final float YAW_RESPONSE_SCALE = 0.55F;
 
     private float leftTrackSpeed = 0.0F;
     private float rightTrackSpeed = 0.0F;
@@ -78,7 +79,12 @@ public class TrackMovementController {
 
         // Compute forward speed and yaw angular velocity
         double avgForwardSpeed = (leftTrackSpeed + rightTrackSpeed) * 0.5D;
-        float yawDelta = (float) Math.toDegrees((rightTrackSpeed - leftTrackSpeed) / TRACK_GAUGE) * 1.5F;
+        // The raw differential-track geometry turns the excavator far too aggressively
+        // at Minecraft tick scale. Keep track speeds and straight-line travel unchanged,
+        // but damp body yaw so pivot turns feel heavy and machine-scale appropriate.
+        float yawDelta = (float) Math.toDegrees(
+                (rightTrackSpeed - leftTrackSpeed) / TRACK_GAUGE
+        ) * YAW_RESPONSE_SCALE;
 
         if (!onGround) {
             avgForwardSpeed *= 0.5D;
