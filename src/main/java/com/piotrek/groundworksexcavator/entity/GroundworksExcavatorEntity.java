@@ -535,7 +535,7 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     private void honkAndDispatchNearestTruck(ServerLevel level) {
-        level.playSound(
+        level.playSeededSound(
                 null,
                 getX(),
                 getY() + 1.4D,
@@ -543,7 +543,8 @@ public class GroundworksExcavatorEntity extends Entity {
                 SoundEvents.RAID_HORN,
                 SoundSource.BLOCKS,
                 0.55F,
-                1.45F
+                1.45F,
+                level.getRandom().nextLong()
         );
 
         long now = level.getGameTime();
@@ -576,7 +577,7 @@ public class GroundworksExcavatorEntity extends Entity {
                 entity -> entity != this
                         && entity instanceof IMobileWorldGranularContainer
         )) {
-            double distance = candidate.distanceToSqr(this);
+            double distance = candidate.distanceToSqr(getX(), getY(), getZ());
             if (distance < nearestDistance) {
                 nearestDistance = distance;
                 nearestEntity = candidate;
