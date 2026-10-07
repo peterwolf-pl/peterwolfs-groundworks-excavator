@@ -22,6 +22,7 @@ import com.piotrek.groundworksexcavator.vehicle.TrackMovementController;
 import com.piotrek.groundworksexcavator.vehicle.WorkLights;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -194,6 +195,34 @@ public class GroundworksExcavatorEntity extends Entity {
     }
 
     /** White exhaust farts from 5% to 20% load. Rare and tiny at 5%, many small puffs at 20%. */
+    private void spawnRearLampGlow() {
+        DustParticleOptions redLamp = new DustParticleOptions(0xFF2020, 0.75F);
+
+        Vec3 left = ArmKinematics.getUpperBodyPoint(
+                this.position(),
+                this.getYRot(),
+                this.getVehiclePitch(),
+                this.getVehicleRoll(),
+                this.getUpperYaw(),
+                -12.0F,
+                -8.5F,
+                -27.8F
+        );
+        Vec3 right = ArmKinematics.getUpperBodyPoint(
+                this.position(),
+                this.getYRot(),
+                this.getVehiclePitch(),
+                this.getVehicleRoll(),
+                this.getUpperYaw(),
+                12.0F,
+                -8.5F,
+                -27.8F
+        );
+
+        this.level().addParticle(redLamp, left.x, left.y, left.z, 0.0D, 0.0D, 0.0D);
+        this.level().addParticle(redLamp, right.x, right.y, right.z, 0.0D, 0.0D, 0.0D);
+    }
+
     private void spawnLightExhaustPuffs(float load) {
         int count = ExhaustPuffs.whitePuffCount(load, this.tickCount);
         if (count == 0) {
@@ -241,6 +270,7 @@ public class GroundworksExcavatorEntity extends Entity {
             float clientLoad = this.getMachineLoad();
             if (this.isOperating()) {
                 spawnLightExhaustPuffs(clientLoad);
+                spawnRearLampGlow();
             }
             if (this.isOperating() && clientLoad > 0.30F) {
                 Vec3 exhaustPos = ArmKinematics.getExhaustWorldPosition(
