@@ -677,6 +677,42 @@ class AutoTrenchControllerTest {
                 "A truck under the +50-degree dump point must resume unloading");
         assertTrue(resumed.bucket() > 0.0F,
                 "Once the truck is present the bucket must begin opening");
+
+        AutoTrenchController.Controls continuingOpen = controller.tick(snapshot(
+                false, AutoTrenchController.REAR_DUMP_YAW,
+                AutoTrenchController.REAR_DUMP_CHECK_BOOM,
+                AutoTrenchController.DUMP_STICK, -20.0F,
+                320, Vec3.ZERO, 0.0F), true);
+
+        assertTrue(continuingOpen.bucket() > 0.0F,
+                "A partially opened bucket must keep opening instead of being commanded closed");
+    }
+
+    @Test
+    void dumpTruckRearLiftNeverExceeds55Degrees() {
+        AutoTrenchController controller = new AutoTrenchController();
+        controller.startWithDumpTruck(1.0F, 2, 0.0F, 0);
+        controller.setPhaseForTest(AutoTrenchController.Phase.LIFT_AND_SWING_RIGHT);
+
+        AutoTrenchController.Controls controls = AutoTrenchController.Controls.STOPPED;
+        for (int i = 0; i < 10; i++) {
+            controls = controller.tick(new AutoTrenchController.Snapshot(
+                    false,
+                    0.0F,
+                    AutoTrenchController.REAR_MAX_TRANSIT_BOOM,
+                    AutoTrenchController.SAFE_STICK,
+                    AutoTrenchController.HELD_BUCKET,
+                    400,
+                    512,
+                    Vec3.ZERO,
+                    0.0F,
+                    true,
+                    0.0F
+            ), true);
+        }
+
+        assertEquals(0.0F, controls.boom(), 0.0001F,
+                "Obstacle-clearance boost must never command rear transit above +55 degrees");
     }
 
     @Test
