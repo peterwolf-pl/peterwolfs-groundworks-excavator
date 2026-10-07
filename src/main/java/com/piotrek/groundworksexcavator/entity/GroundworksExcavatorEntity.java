@@ -105,12 +105,24 @@ public class GroundworksExcavatorEntity extends Entity {
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> IS_HAMMERING =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
+
+    /*
+     * Replay/network compatibility boundary.
+     *
+     * MACHINE_LOAD existed before AUTO_ACTIVE and HORN_HELD. SynchedEntityData
+     * accessor IDs are assigned in declaration order and are recorded by
+     * Flashback. Never insert a new accessor before or inside the legacy block
+     * above. New fields must be appended after MACHINE_LOAD so existing replay
+     * packets keep the same id + serializer pairing.
+     */
+    private static final EntityDataAccessor<Float> MACHINE_LOAD =
+            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
+
+    // Fields added after the legacy replay schema. Append future fields below.
     private static final EntityDataAccessor<Boolean> AUTO_ACTIVE =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> HORN_HELD =
             SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Float> MACHINE_LOAD =
-            SynchedEntityData.defineId(GroundworksExcavatorEntity.class, EntityDataSerializers.FLOAT);
 
     // ── Components ───────────────────────────────────────────────────
     private final BucketMaterialContainer bucket = new BucketMaterialContainer();
@@ -199,9 +211,9 @@ public class GroundworksExcavatorEntity extends Entity {
         builder.define(IS_DIGGING, false);
         builder.define(IS_DUMPING, false);
         builder.define(IS_HAMMERING, false);
+        builder.define(MACHINE_LOAD, 0.0F);
         builder.define(AUTO_ACTIVE, false);
         builder.define(HORN_HELD, false);
-        builder.define(MACHINE_LOAD, 0.0F);
     }
 
     /** White exhaust farts from 5% to 20% load. Rare and tiny at 5%, many small puffs at 20%. */
