@@ -18,6 +18,9 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
  * 26.3 entity renderer for the tracked excavator.
  */
@@ -29,6 +32,13 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
 
     private final ExcavatorModel model;
     private final HydraulicHammerModel hammerModel;
+    private final Map<GroundworksExcavatorEntity, TrackAnimationState> trackAnimations = new WeakHashMap<>();
+
+    private static final class TrackAnimationState {
+        float lastRenderTick = Float.NaN;
+        float leftTravel;
+        float rightTravel;
+    }
 
     public ExcavatorRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -57,6 +67,22 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
         state.leftTrackSpeed = entity.getTrackLeftSpeed();
         state.rightTrackSpeed = entity.getTrackRightSpeed();
 
+        TrackAnimationState trackAnimation =
+                this.trackAnimations.computeIfAbsent(entity, ignored -> new TrackAnimationState());
+        float renderTick = entity.tickCount + partialTick;
+        if (Float.isNaN(trackAnimation.lastRenderTick)) {
+            trackAnimation.lastRenderTick = renderTick;
+        } else {
+            float deltaTicks = Math.max(0.0F, Math.min(5.0F, renderTick - trackAnimation.lastRenderTick));
+            trackAnimation.leftTravel += state.leftTrackSpeed * 16.0F * deltaTicks;
+            trackAnimation.rightTravel += state.rightTrackSpeed * 16.0F * deltaTicks;
+            trackAnimation.leftTravel = wrapTrackTravel(trackAnimation.leftTravel);
+            trackAnimation.rightTravel = wrapTrackTravel(trackAnimation.rightTravel);
+            trackAnimation.lastRenderTick = renderTick;
+        }
+        state.leftTrackTravel = trackAnimation.leftTravel;
+        state.rightTrackTravel = trackAnimation.rightTravel;
+
         state.materialId = entity.getBucketMaterialId();
         state.storedUnits = entity.getStoredUnits();
         state.capacity = entity.getBucketCapacity();
@@ -74,6 +100,14 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
         state.isOperating = entity.isOperating();
         state.machineLoad = entity.getMachineLoad();
         state.beaconSpin = BeaconLight.spin(entity.tickCount, partialTick);
+    }
+
+    private static float wrapTrackTravel(float travel) {
+        float loop = ExcavatorModel.TRACK_LOOP_LENGTH;
+        if (travel > loop || travel < -loop) {
+            travel %= loop;
+        }
+        return travel;
     }
 
     @Override
