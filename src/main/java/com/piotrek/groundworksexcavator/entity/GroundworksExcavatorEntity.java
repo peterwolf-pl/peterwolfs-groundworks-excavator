@@ -152,7 +152,6 @@ public class GroundworksExcavatorEntity extends Entity {
     private int lastDepositedUnits;
     private final java.util.ArrayList<BlockPos> beaconLights = new java.util.ArrayList<>();
     private final java.util.ArrayList<BlockPos> workLights = new java.util.ArrayList<>();
-    private int beaconLightStep = -1;
     private float trackedCabFacing = Float.NaN;
     private float smoothedUpperYaw = Float.NaN;
     private float smoothedUpperYawO = Float.NaN;
@@ -1441,28 +1440,9 @@ public class GroundworksExcavatorEntity extends Entity {
         super.remove(reason);
     }
 
-    /**
-     * The lamp is the source. Invisible light blocks sit in the direction it faces
-     * and jump with each step of the spin, so the lit ground sweeps like a beacon.
-     */
+    /** The beacon only spins. It must not throw light across the ground. */
     private void updateBeaconLight() {
-        if (!this.isOperating()) {
-            clearBeaconLight();
-            return;
-        }
-        float spin = BeaconLight.spin(this.tickCount, 0.0F);
-        int step = BeaconLight.step(spin);
-        if (step == this.beaconLightStep) {
-            return;
-        }
-        this.beaconLightStep = step;
-        Vec3 facing = ArmKinematics.getBeaconLampFacing(
-                this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw(), spin
-        );
-        Vec3 lamp = ArmKinematics.getBeaconLampWorldPosition(
-                this.position(), this.getYRot(), this.getVehiclePitch(), this.getVehicleRoll(), this.getUpperYaw()
-        );
-        syncLightBlocks(this.beaconLights, BeaconLight.lightPositions(lamp, this.position(), facing), BeaconLight.LEVEL);
+        clearBeaconLight();
     }
 
     /**
@@ -1519,7 +1499,6 @@ public class GroundworksExcavatorEntity extends Entity {
 
     private void clearBeaconLight() {
         clearHeldLights(this.beaconLights);
-        this.beaconLightStep = -1;
     }
 
     private void clearWorkLights() {
