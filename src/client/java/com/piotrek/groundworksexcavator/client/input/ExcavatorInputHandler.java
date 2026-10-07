@@ -23,6 +23,8 @@ public final class ExcavatorInputHandler {
 
     private static boolean isDriveMode = true;
     private static int currentBucketType = 0; // 0 = Standard, 1 = Large, 2 = Pneumatic hammer
+    /** False until Z is pressed this mount, so a loaded attachment is not overwritten by the client default. */
+    private static boolean attachmentChosenLocally;
     private static boolean debugHudVisible = false;
     private static boolean hammerLatched = false;
     private static long lastCTapTime = 0L;
@@ -62,6 +64,10 @@ public final class ExcavatorInputHandler {
         }
 
         if (client.player.getVehicle() instanceof GroundworksExcavatorEntity excavator) {
+            // The saved attachment lives on the entity. Keep sending that until the operator presses Z.
+            if (!attachmentChosenLocally) {
+                currentBucketType = excavator.getBucketType();
+            }
 
             // 1. Check Mode Toggle (Key X)
             while (ExcavatorKeyBindings.KEY_TOGGLE_MODE != null && ExcavatorKeyBindings.KEY_TOGGLE_MODE.consumeClick()) {
@@ -74,6 +80,7 @@ public final class ExcavatorInputHandler {
 
             // 1b. Cycle attachment (Key Z): standard bucket -> large bucket -> hammer.
             while (ExcavatorKeyBindings.KEY_TOGGLE_BUCKET != null && ExcavatorKeyBindings.KEY_TOGGLE_BUCKET.consumeClick()) {
+                attachmentChosenLocally = true;
                 currentBucketType = (currentBucketType + 1) % 3;
                 if (currentBucketType != GroundworksExcavatorEntity.BUCKET_HAMMER) {
                     hammerLatched = false;
@@ -262,6 +269,7 @@ public final class ExcavatorInputHandler {
             lastHammerActive = false;
             lastHornActive = false;
             hammerLatched = false;
+            attachmentChosenLocally = false;
             cKeyDownLastTick = false;
             lastCTapTime = 0L;
             keepaliveTicks = 0;

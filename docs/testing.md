@@ -60,7 +60,7 @@ This task launches an automated graphical singleplayer test instance, constructs
 The `excavator_08_surface_push_mound.png` scene also executes a real Groundworks surface displacement. It fails the GameTest if no gravel moves or if source-plus-destination material changes.
 
 1. `excavator_01_profile_isometric.png`: Front-left isometric view of the full vehicle.
-2. `excavator_02_cab_and_beacon.png`: Close-up of operator cab and the flashing yellow warning beacon.
+2. `excavator_02_cab_and_beacon.png`: Close-up of operator cab and the rotating yellow warning beacon.
 3. `excavator_03_counterweight_hazard.png`: Rear counterweight with safety hazard stripes and exhaust stack.
 4. `excavator_04_tracks_and_rollers.png`: Crawler tracks with drive sprockets and guide rollers.
 5. `excavator_05_player_in_glass_cab.png`: Operator seated in the cab.

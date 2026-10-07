@@ -15,5 +15,5 @@
   "key.pw_groundworks_excavator.hammer": "Horn / Pneumatic Hammer (C)",
   "key.pw_groundworks_excavator.debug_hud": "Toggle Debug Angle HUD (Double-tap H)",
   "subtitles.pw_groundworks_excavator.engine_loop": "Excavator engine rumbles",
-  "subtitles.pw_groundworks_excavator.truck_horn": "Air horn"
+  "subtitles.pw_groundworks_excavator.truck_horn": "Car horn"
 }

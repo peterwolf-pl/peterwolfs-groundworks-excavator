@@ -8,6 +8,7 @@ import com.piotrek.groundworksexcavator.client.model.HydraulicHammerModel;
 import com.piotrek.groundworksexcavator.client.render.ExcavatorHudOverlay;
 import com.piotrek.groundworksexcavator.client.render.ExcavatorRenderer;
 import com.piotrek.groundworksexcavator.client.sound.ExcavatorEngineSoundController;
+import com.piotrek.groundworksexcavator.client.sound.ExcavatorHornSoundController;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
@@ -37,6 +38,7 @@ public class GroundworksExcavatorClient implements ClientModInitializer {
         // Register input and positional engine sound tick listeners
         ClientTickEvents.END_CLIENT_TICK.register(ExcavatorInputHandler::clientTick);
         ClientTickEvents.END_CLIENT_TICK.register(ExcavatorEngineSoundController::clientTick);
+        ClientTickEvents.END_CLIENT_TICK.register(ExcavatorHornSoundController::clientTick);
 
         // Register in-cab HUD
         ExcavatorHudOverlay.register();

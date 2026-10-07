@@ -1,5 +1,6 @@
 package com.piotrek.groundworksexcavator.arm;
 
+
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -338,6 +339,73 @@ public final class ArmKinematics {
         Vector4f beaconVec = new Vector4f(-10.0f / 16.0f, -27.0f / 16.0f, 12.0f / 16.0f, 1.0f);
         turntableMat.transform(beaconVec);
         return new Vec3(beaconVec.x, beaconVec.y, beaconVec.z);
+    }
+
+    /**
+     * World yaw the cab front faces. Same turntable matrix as the seat and the boom.
+     * Minecraft yaw: 0 looks toward +Z.
+     */
+    public static float getCabFacingYaw(float baseYaw, float basePitch, float baseRoll, float upperYaw) {
+        Matrix4f mat = computeTurntableMatrix(Vec3.ZERO, baseYaw, basePitch, baseRoll, upperYaw);
+        Vector4f origin = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
+        Vector4f ahead = new Vector4f(0.0f, 0.0f, 1.0f, 1.0f);
+        mat.transform(origin);
+        mat.transform(ahead);
+        float x = ahead.x - origin.x;
+        float z = ahead.z - origin.z;
+        return (float) Math.toDegrees(Math.atan2(-x, z));
+    }
+
+    /**
+     * Horizontal direction the roof beacon lamp faces. Model +Z after the lamp spin.
+     */
+    public static Vec3 getBeaconLampFacing(
+            float baseYaw,
+            float basePitch,
+            float baseRoll,
+            float upperYaw,
+            float spin
+    ) {
+        Matrix4f mat = computeTurntableMatrix(Vec3.ZERO, baseYaw, basePitch, baseRoll, upperYaw);
+        mat.translate(-10.0f / 16.0f, -27.0f / 16.0f, 12.0f / 16.0f);
+        mat.rotate(new Quaternionf().rotationZYX(0.0f, spin, 0.0f));
+        Vector4f origin = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
+        Vector4f ahead = new Vector4f(0.0f, 0.0f, 1.0f, 1.0f);
+        mat.transform(origin);
+        mat.transform(ahead);
+        return new Vec3(ahead.x - origin.x, 0.0D, ahead.z - origin.z);
+    }
+
+    /** Housing centre of the roof beacon, in world space. The lamp spins in place. */
+    public static Vec3 getBeaconLampWorldPosition(
+            Vec3 basePos,
+            float baseYaw,
+            float basePitch,
+            float baseRoll,
+            float upperYaw
+    ) {
+        Matrix4f mat = computeTurntableMatrix(basePos, baseYaw, basePitch, baseRoll, upperYaw);
+        mat.translate(-10.0f / 16.0f, -27.0f / 16.0f, 12.0f / 16.0f);
+        Vector4f lamp = new Vector4f(0.0f, -4.5f / 16.0f, 0.0f, 1.0f);
+        mat.transform(lamp);
+        return new Vec3(lamp.x, lamp.y, lamp.z);
+    }
+
+    /** A point on the upper body, in the same space as the cab model. */
+    public static Vec3 getUpperBodyPoint(
+            Vec3 basePos,
+            float baseYaw,
+            float basePitch,
+            float baseRoll,
+            float upperYaw,
+            float x,
+            float y,
+            float z
+    ) {
+        Matrix4f mat = computeTurntableMatrix(basePos, baseYaw, basePitch, baseRoll, upperYaw);
+        Vector4f point = new Vector4f(x / 16.0F, y / 16.0F, z / 16.0F, 1.0F);
+        mat.transform(point);
+        return new Vec3(point.x, point.y, point.z);
     }
 
     /**

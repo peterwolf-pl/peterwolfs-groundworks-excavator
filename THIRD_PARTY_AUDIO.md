@@ -2,14 +2,15 @@
 
 ## Diesel engine loop
 
-- File: `src/main/resources/assets/pw_groundworks_excavator/sounds/engine_loop.ogg`
-- Source: RWM 6.8 sound bank, `diesel_idle.ogg`
-- Retrieved from the Under Fire archive of the RWM sound bank
-- License: RWM-Zero 1.0 public-domain dedication
-- Modifications: re-used as the base loop; runtime pitch/volume are controlled by excavator machine load
+- Files: `src/main/resources/assets/pw_groundworks_excavator/sounds/engine_loop.ogg`, `engine_load.ogg`
+- Source: [WWS Kleinlokomotive8211motor.ogg](https://commons.wikimedia.org/wiki/File:WWS_Kleinlokomotive8211motor.ogg)
+- Author: Work With Sounds / Konrad Gutkowski
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- Modifications: trimmed a steady section to a seamless mono Vorbis idle loop. The load file is the same recording, sped up, low-boosted and softly saturated so hydraulic load has a heavier exhaust. Runtime crossfade is controlled by excavator machine load.
 
-## Truck air horn
+## Car horn
 
-- Files: `truck_horn_short.ogg`, `truck_horn_long.ogg`
-- Original project-generated dual-tone air-horn samples
-- No third-party audio source used
+- Files: `truck_horn_short.ogg`, `truck_horn_long.ogg`, `truck_horn_loop.ogg`
+- Original project-generated single-tone electric disc horn (440 Hz plus harmonics). Short and long are the same note; only the sustain differs. The loop is the steady tone with no attack or release, played while C is held.
+- No second musical tone. No third-party audio source used.
+- Valid mono Vorbis. The previous dual-tone air-horn samples were replaced because they sounded like a truck air horn.
