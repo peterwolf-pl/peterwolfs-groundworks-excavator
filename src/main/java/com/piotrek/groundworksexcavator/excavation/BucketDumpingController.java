@@ -1,5 +1,7 @@
 package com.piotrek.groundworksexcavator.excavation;
 
+import com.piotrek.groundworks.api.container.GranularContainerTransferApi;
+import com.piotrek.groundworks.api.container.IWorldGranularContainer;
 import com.piotrek.groundworks.api.deposit.DepositResult;
 import com.piotrek.groundworks.api.material.GranularMaterial;
 import com.piotrek.groundworksexcavator.arm.ArmKinematics;
@@ -11,6 +13,7 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -53,6 +56,18 @@ public final class BucketDumpingController {
             BucketMaterialContainer bucket,
             BucketPose currentPose
     ) {
+        return tick(level, null, bucket, currentPose);
+    }
+
+    /**
+     * Executes dumping with a source entity excluded from receiver lookup.
+     */
+    public static DumpTickResult tick(
+            ServerLevel level,
+            @Nullable Entity source,
+            BucketMaterialContainer bucket,
+            BucketPose currentPose
+    ) {
         if (bucket.isEmpty() || currentPose == null) {
             return DumpTickResult.NONE;
         }
@@ -77,6 +92,47 @@ public final class BucketDumpingController {
 
         Vec3 lip = currentPose.lip();
         GranularMaterial material = bucket.storedMaterial();
+
+        // Prefer a physical Groundworks container under the bucket lip.
+        // The receiver owns its overflow policy. The dump truck fills its
+        // 10-block body first and then spills excess to both sides.
+        IWorldGranularContainer receiver =
+                GranularContainerTransferApi.findReceiver(
+                        level,
+                        lip,
+                        source,
+                        4.0D
+                );
+
+        if (receiver != null) {
+            int consumed = receiver.receiveMaterialAt(
+                    level,
+                    lip,
+                    material,
+                    toDump
+            );
+
+            consumed = Math.clamp(consumed, 0, toDump);
+            if (consumed > 0) {
+                int extracted = bucket.extractMaterial(consumed);
+                spawnContainerTransferParticles(
+                        level,
+                        lip,
+                        material,
+                        extracted
+                );
+                return new DumpTickResult(
+                        extracted,
+                        material,
+                        lip,
+                        true
+                );
+            }
+
+            // Receiver was physically hit but could not consume the material.
+            // Keep it in the bucket instead of falling through to terrain.
+            return DumpTickResult.NONE;
+        }
 
         // Find the exact ground or pile surface directly below the bucket lip via gravity raycast
         BlockPos targetPos = findDepositSurface(level, lip, material);
@@ -125,6 +181,35 @@ public final class BucketDumpingController {
         }
 
         return null;
+    }
+
+    private static void spawnContainerTransferParticles(
+            ServerLevel level,
+            Vec3 lip,
+            GranularMaterial material,
+            int units
+    ) {
+        var block = material.sourceBlock() != null
+                ? material.sourceBlock()
+                : Blocks.DIRT;
+
+        BlockParticleOption particle = new BlockParticleOption(
+                ParticleTypes.BLOCK,
+                block.defaultBlockState()
+        );
+
+        int count = Math.clamp(units / 4, 4, 20);
+        level.sendParticles(
+                particle,
+                lip.x,
+                lip.y,
+                lip.z,
+                count,
+                0.14D,
+                0.10D,
+                0.14D,
+                0.04D
+        );
     }
 
     private static void spawnFallingStreamParticles(
