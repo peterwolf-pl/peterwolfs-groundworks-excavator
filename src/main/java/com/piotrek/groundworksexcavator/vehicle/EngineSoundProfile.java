@@ -3,10 +3,10 @@ package com.piotrek.groundworksexcavator.vehicle;
 /** Maps authoritative hydraulic/drive load to a stable diesel-engine sound mix. */
 public final class EngineSoundProfile {
 
-    private static final float IDLE_VOLUME = 0.52F;
-    private static final float LOAD_VOLUME = 0.90F;
-    private static final float IDLE_PITCH = 0.82F;
-    private static final float LOAD_PITCH = 1.10F;
+    private static final float IDLE_VOLUME = 0.50F;
+    private static final float LOAD_VOLUME = 0.86F;
+    private static final float IDLE_PITCH = 0.90F;
+    private static final float LOAD_PITCH = 1.13F;
 
     private EngineSoundProfile() {}
 
