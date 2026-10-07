@@ -506,8 +506,16 @@ public class GroundworksExcavatorEntity extends Entity {
 
             // AutoTrench owns its dump timing, so retry/penetration poses cannot
             // spill a partial load merely because the bucket crosses the dump angle.
+            // In DumpTruck mode terrain fallback is forbidden: material may leave
+            // the bucket only while a compatible mobile container is physically
+            // under the current bucket lip.
+            boolean receiverUnderCurrentLip =
+                    !this.autoTrenchController.isDumpTruckMode()
+                            || this.hasDumpTruckUnderCurrentBucketLip(serverLevel);
+
             BucketDumpingController.DumpTickResult dumpResult =
                     this.autoTrenchController.allowsBucketDumping()
+                            && receiverUnderCurrentLip
                             ? BucketDumpingController.tick(
                                     serverLevel, this, this.bucket, this.currentBucketPose)
                             : BucketDumpingController.DumpTickResult.NONE;
@@ -668,6 +676,21 @@ public class GroundworksExcavatorEntity extends Entity {
     private void resetAutomaticTruckAdvanceSequence() {
         this.autoTruckAdvanceStage = AUTO_TRUCK_STAGE_IDLE;
         this.autoTruckHornDelayTicks = 0;
+    }
+
+    private boolean hasDumpTruckUnderCurrentBucketLip(ServerLevel level) {
+        if (this.currentBucketPose == null) {
+            return false;
+        }
+
+        IWorldGranularContainer receiver = GranularContainerTransferApi.findReceiver(
+                level,
+                this.currentBucketPose.lip(),
+                this,
+                4.0D
+        );
+
+        return receiver instanceof IMobileWorldGranularContainer;
     }
 
     private boolean hasDumpTruckUnderPlannedRearDumpLip(ServerLevel level) {
