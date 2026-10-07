@@ -70,7 +70,8 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
 
 6. **Interchangeable Pneumatic Breaker Attachment**
    - Press `Z` to cycle Standard Bucket -> Large Bucket -> Pneumatic Hammer.
-   - Hold `C` for momentary hammering; double-tap `C` to latch continuous operation.
+   - With a bucket installed, `C` operates the excavator horn.
+   - With the pneumatic hammer installed, hold `C` for momentary hammering; double-tap `C` to latch continuous operation.
    - Each impact crushes 128 Groundworks units, exactly one quarter of a block.
    - Stone is crushed into granular cobblestone and displaced beside the struck block instead of becoming an item drop.
    - The hammer can continue breaking and pushing loose cobblestone, but it never stores material in the bucket container.
@@ -80,6 +81,14 @@ REAL DEFORMABLE GRANULAR PILE (Volumetric Relaxation)
 7. **In-Cab Telemetry HUD & Diagnostics**
    - Real-time in-cab heads-up display showing machine status, stored material, volume in $\text{m}^3$, fill bar, attachment state, and joint angles.
    - `/excavator debug` diagnostic command.
+
+8. **Dump-Truck AutoTrench Workflow**
+   - `/excavator autotrench dumptruck start <depth> <cycles> [expandLeftBlocks] [expandCycles]`
+   - Digging geometry and station progression stay identical to normal AutoTrench.
+   - Before unloading, the bucket is raised high and the upper structure rotates 180 degrees to dump into a Groundworks world container behind the excavator.
+   - Leaving the cab does not stop this AutoTrench mode.
+   - Removing the dump truck from behind the excavator pauses the automation until a compatible truck returns.
+   - A quick double horn press on `C` asks the nearest compatible dump truck to advance exactly one block.
 
 ---
 
