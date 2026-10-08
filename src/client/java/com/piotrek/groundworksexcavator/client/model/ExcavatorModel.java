@@ -163,13 +163,20 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
         }
     }
 
+    /**
+     * Compact rectangular work lamp based on the dump-truck headlamp shape.
+     * The dark housing is shallow and the bright lens sits slightly proud of it,
+     * so the lamp reads as a real machine floodlight instead of a torch-like block.
+     */
     private static void addWorkLamp(PartDefinition upperBody, String name, float x) {
         upperBody.addOrReplaceChild(
                 name,
                 CubeListBuilder.create()
-                        .texOffs(128, 176).addBox(-1.6F, -2.6F, -1.3F, 3.2F, 1.8F, 2.6F)
-                        .texOffs(136, 176).addBox(-1.2F, -1.8F, 1.1F, 2.4F, 1.2F, 0.8F),
-                PartPose.offset(x, -27.0F, 14.5F)
+                        // Small dark metal housing.
+                        .texOffs(290, 122).addBox(-1.8F, -1.5F, -0.7F, 3.6F, 2.6F, 1.1F)
+                        // Flat bright lens, scaled down from the dump-truck headlamp.
+                        .texOffs(390, 74).addBox(-1.5F, -1.2F, 0.35F, 3.0F, 2.0F, 0.45F),
+                PartPose.offset(x, -27.0F, 14.7F)
         );
     }
 
@@ -212,10 +219,10 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         .texOffs(136, 0).addBox(-18.0F, -2.0F, -24.0F, 36.0F, 3.0F, 44.0F)
                         // Rear counterweight with hazard stripes: 92x24 UV [158..250, 122..146]
                         .texOffs(158, 122).addBox(-18.0F, -14.0F, -26.0F, 36.0F, 14.0F, 10.0F)
-                        // Twin red rear tail lamp housings mounted proud of the counterweight.
-                        // UV [260, 152] is mapped to ruby-red automotive tail lamp lenses.
-                        .texOffs(260, 152).addBox(-14.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
-                        .texOffs(260, 152).addBox(9.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
+                        // Twin rear lamp housings mounted proud of the counterweight.
+                        // Red glow is emitted client-side from these exact points.
+                        .texOffs(66, 152).addBox(-14.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
+                        .texOffs(66, 152).addBox(9.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
                         // Engine compartment housing: 104x44 UV [0..104, 74..118]
                         .texOffs(0, 74).addBox(-2.0F, -14.0F, -16.0F, 20.0F, 12.0F, 32.0F)
                         // Engine exhaust stack: 16x14 UV [66..82, 152..166]
@@ -278,7 +285,7 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                 PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
-        // Two floodlights on the cab roof front lip. Lenses face the boom.
+        // Two compact dump-truck-style floodlights on the cab roof front lip.
         addWorkLamp(upperBody, "work_lamp_left", -15.0F);
         addWorkLamp(upperBody, "work_lamp_right", -5.0F);
 

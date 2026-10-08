@@ -178,17 +178,6 @@ def create_excavator_texture():
     draw.rectangle([216, 154, 214 + 42, 152 + 22], outline=c_iron_light)
     draw.ellipse([228, 158, 244, 170], fill=c_dark_iron, outline=c_iron_light)
 
-    # 26. "rear_lamps": u=260, v=152, w=20, h=12
-    # Heavy rubber/steel lamp housing:
-    draw.rectangle([260, 152, 260 + 20, 152 + 12], fill=c_beacon_base)
-    # Automotive ruby-red tail lamp lens with reflective core (no redstone torch particles):
-    c_tail_dark = (145, 12, 12, 255)
-    c_tail_red = (220, 24, 24, 255)
-    c_tail_bright = (255, 75, 75, 255)
-    draw.rectangle([260 + 1, 152 + 1, 260 + 18, 152 + 10], fill=c_tail_dark)
-    draw.rectangle([260 + 2, 152 + 2, 260 + 17, 152 + 9], fill=c_tail_red)
-    draw.rectangle([260 + 4, 152 + 3, 260 + 15, 152 + 8], fill=c_tail_bright)
-
     os.makedirs("src/main/resources/assets/pw_groundworks_excavator/textures/entity", exist_ok=True)
     img.save("src/main/resources/assets/pw_groundworks_excavator/textures/entity/excavator.png")
     print("512x512 non-overlapping master entity texture created successfully.")
