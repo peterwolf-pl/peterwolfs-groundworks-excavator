@@ -12,6 +12,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
@@ -55,16 +56,19 @@ public class ExcavatorHudOverlay implements HudElement {
 
         // Header: Mode [X] & Status
         boolean drive = ExcavatorInputHandler.isDriveMode();
-        String modeStr = drive ? "§aJAZDA" : "§bRAMIĘ";
+        String modeStr = drive
+                ? I18n.get("hud.pw_groundworks_excavator.mode_drive_short")
+                : I18n.get("hud.pw_groundworks_excavator.mode_arm_short");
         boolean hammer = excavator.isHammerAttachment();
-        String status = excavator.isHammering() ? "§cMŁOT" :
-                excavator.isDigging() ? "§aKOPANIE" :
-                excavator.isDumping() ? "§eWYSYP" : "§7GOTOWA";
-        extractor.text(font, "§6§lKoparka §7[X]: " + modeStr, x, y, 0xFFFFFFFF, true);
+        String status = excavator.isHammering() ? I18n.get("hud.pw_groundworks_excavator.status_hammer") :
+                excavator.isDigging() ? I18n.get("hud.pw_groundworks_excavator.status_digging") :
+                excavator.isDumping() ? I18n.get("hud.pw_groundworks_excavator.status_dumping") :
+                I18n.get("hud.pw_groundworks_excavator.status_ready");
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.header", modeStr), x, y, 0xFFFFFFFF, true);
         extractor.text(font, status, x + width - font.width(status) - 2, y, 0xFFFFFFFF, true);
 
         // ── 1. BUCKET FILL BAR ──
-        String matName = excavator.getBucketMaterialId() > 0 ? excavator.getBucketMaterial().name().toUpperCase() : "PUSTO";
+        String matName = excavator.getBucketMaterialId() > 0 ? excavator.getBucketMaterial().name().toUpperCase() : I18n.get("hud.pw_groundworks_excavator.empty");
         int units = excavator.getStoredUnits();
         int cap = excavator.getBucketCapacity();
         float fillRatio = (float) units / (float) Math.max(1, cap);
@@ -74,14 +78,14 @@ public class ExcavatorHudOverlay implements HudElement {
         int bar1Y = y + 12;
         int bar1BoxY = bar1Y + 9;
         if (hammer) {
-            extractor.text(font, "Osprzęt: §cMŁOT PNEUMATYCZNY", x, bar1Y, 0xFFCCCCCC, true);
+            extractor.text(font, I18n.get("hud.pw_groundworks_excavator.tool_hammer"), x, bar1Y, 0xFFCCCCCC, true);
             extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
             if (excavator.isHammering()) {
                 extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFFFFAA00);
             }
             extractor.text(font, "[C] / [2x C]", x + barWidth + 4, bar1BoxY - 2, 0xFFAAAAAA, true);
         } else {
-            extractor.text(font, String.format("Łyżka %s: §f%s", typeLabel, matName), x, bar1Y, 0xFFCCCCCC, true);
+            extractor.text(font, I18n.get("hud.pw_groundworks_excavator.tool_bucket", typeLabel, matName), x, bar1Y, 0xFFCCCCCC, true);
             extractor.fill(x, bar1BoxY, x + barWidth, bar1BoxY + 4, 0xFF2A2A2A);
             int fillWidth = Math.round(barWidth * fillRatio);
             if (fillWidth > 0) {
@@ -93,8 +97,9 @@ public class ExcavatorHudOverlay implements HudElement {
         // ── 2. HYDRAULIC LOAD & OVERLOAD BAR ──
         float load = excavator.getMachineLoad();
         int bar2Y = bar1BoxY + 7;
-        String loadLabel = load > 0.85F ? "§c§lOPÓR / PRZECIĄŻENIE" :
-                load > 0.50F ? "§eObciążenie" : "§7Obciążenie";
+        String loadLabel = load > 0.85F ? I18n.get("hud.pw_groundworks_excavator.load_overload") :
+                load > 0.50F ? I18n.get("hud.pw_groundworks_excavator.load_heavy") :
+                I18n.get("hud.pw_groundworks_excavator.load_normal");
         extractor.text(font, loadLabel, x, bar2Y, 0xFFCCCCCC, true);
 
         int bar2BoxY = bar2Y + 9;
@@ -109,10 +114,10 @@ public class ExcavatorHudOverlay implements HudElement {
 
         // Compact control hints footer (with 2x H debug toggle hint)
         String hint = hammer
-                ? "§8[C] Młot | [2x C] Ciągły | [Z] Osprzęt"
+                ? I18n.get("hud.pw_groundworks_excavator.hint_hammer")
                 : drive
-                ? "§8[W/S] Gąsienice | [Z] Osprzęt | [2x H] Kąty"
-                : "§8[W/S] Ramię | [A/D] Obrót | [Z] Osprzęt";
+                ? I18n.get("hud.pw_groundworks_excavator.hint_drive")
+                : I18n.get("hud.pw_groundworks_excavator.hint_arm");
         extractor.text(font, hint, x, y + height - 9, 0xFF888888, true);
 
         // ── 3. DETAILED DEBUG ANGLE & ROTATION HUD (TOGGLED VIA 2x H) ──
@@ -137,7 +142,7 @@ public class ExcavatorHudOverlay implements HudElement {
         extractor.outline(x - 3, debugY - 3, debugWidth + 3, debugHeight + 3, 0xFF00AAFF);
 
         // Header
-        extractor.text(font, "§b§lTELEMETRIA KĄTÓW & OBROTU", x, debugY, 0xFFFFFFFF, true);
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_title"), x, debugY, 0xFFFFFFFF, true);
         String closeHint = "§8[2x H]";
         extractor.text(font, closeHint, x + debugWidth - font.width(closeHint) - 2, debugY, 0xFF888888, true);
 
@@ -148,7 +153,7 @@ public class ExcavatorHudOverlay implements HudElement {
         float boom = excavator.getBoomAngle();
         float boomFrac = fraction(boom, ArmKinematics.BOOM_MIN, ArmKinematics.BOOM_MAX);
         int curY = debugY + 15;
-        extractor.text(font, String.format("§6Wysięgnik: §f%+.1f° §7[%+.0f°..%+.0f°]",
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_boom",
                 boom, ArmKinematics.BOOM_MIN, ArmKinematics.BOOM_MAX), x, curY, 0xFFFFFFFF, true);
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, boomFrac, 0xFF00DDCC);
 
@@ -156,7 +161,7 @@ public class ExcavatorHudOverlay implements HudElement {
         float stick = excavator.getStickAngle();
         float stickFrac = fraction(stick, ArmKinematics.STICK_MIN, ArmKinematics.STICK_MAX);
         curY = debugY + 27;
-        extractor.text(font, String.format("§6Przedramię: §f%+.1f° §7[%+.0f°..%+.0f°]",
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_stick",
                 stick, ArmKinematics.STICK_MIN, ArmKinematics.STICK_MAX), x, curY, 0xFFFFFFFF, true);
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, stickFrac, 0xFF44DD66);
 
@@ -170,20 +175,22 @@ public class ExcavatorHudOverlay implements HudElement {
         float dumpTilt = pose.dumpTiltDegrees();
 
         curY = debugY + 39;
-        extractor.text(font, String.format("§6%s: §f%+.1f° §7[%+.0f°..%+.0f°]",
-                hammer ? "Młot" : "Łyżka",
-                bucket, toolMin, toolMax), x, curY, 0xFFFFFFFF, true);
+        String toolName = hammer
+                ? I18n.get("hud.pw_groundworks_excavator.tool_name_hammer")
+                : I18n.get("hud.pw_groundworks_excavator.tool_name_bucket");
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_tool",
+                toolName, bucket, toolMin, toolMax), x, curY, 0xFFFFFFFF, true);
         int bucketBarColor = dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? 0xFFFF8800 : 0xFFFFAA00;
         drawMiniBar(extractor, x + 160, curY + 2, 65, 4, bucketFrac, bucketBarColor);
 
         curY = debugY + 49;
         String dumpStatus = hammer
-                ? (excavator.isHammering() ? "§cPracuje 36%" : "§7Gotowy")
-                : (dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? "§eWysypuje" : "§7Zamknięta");
+                ? (excavator.isHammering() ? I18n.get("hud.pw_groundworks_excavator.status_hammer_active") : I18n.get("hud.pw_groundworks_excavator.status_hammer_ready"))
+                : (dumpTilt >= ArmKinematics.DUMP_THRESHOLD_DEG ? I18n.get("hud.pw_groundworks_excavator.status_bucket_dumping") : I18n.get("hud.pw_groundworks_excavator.status_bucket_closed"));
         extractor.text(font, hammer
-                        ? String.format("§7Końcówka: §f%.2fm §7od osi mocowania §7[%s§7]",
+                        ? I18n.get("hud.pw_groundworks_excavator.debug_hammer_tip",
                                 Math.abs(ArmKinematics.HAMMER_TIP_STRIKE_Z_PX) / 16.0F, dumpStatus)
-                        : String.format("§7Nachylenie zrzutu: §f%+.1f° §7(próg: 30°) §7[%s§7]",
+                        : I18n.get("hud.pw_groundworks_excavator.debug_bucket_tilt",
                                 dumpTilt, dumpStatus),
                 x + 4, curY, 0xFFCCCCCC, true);
 
@@ -194,11 +201,11 @@ public class ExcavatorHudOverlay implements HudElement {
         float cabYaw = excavator.getUpperYaw();
         float baseYaw = excavator.getYRot();
         curY = debugY + 64;
-        extractor.text(font, String.format("§6Wieżyczka: §f%+.1f° §7(3°/t) | §6Podwozie: §f%+.1f°",
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_turntable",
                 cabYaw, baseYaw), x, curY, 0xFFFFFFFF, true);
 
         curY = debugY + 75;
-        extractor.text(font, String.format("§7Pochylenie pojazdu Pitch/Roll: §f%+.1f° §7/ §f%+.1f°",
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_pitch_roll",
                 excavator.getVehiclePitch(), excavator.getVehicleRoll()), x, curY, 0xFFAAAAAA, true);
 
         // Horizontal divider
@@ -210,26 +217,30 @@ public class ExcavatorHudOverlay implements HudElement {
         double depth = excavator.getY() - edge.y;
 
         curY = debugY + 89;
-        extractor.text(font, String.format("§6%s: §fX:%.1f Y:%.1f Z:%.1f",
-                hammer ? "Końcówka młota" : "Zęby",
-                edge.x, edge.y, edge.z), x, curY, 0xFFDDDDDD, true);
+        String pointName = hammer
+                ? I18n.get("hud.pw_groundworks_excavator.point_hammer_tip")
+                : I18n.get("hud.pw_groundworks_excavator.point_bucket_teeth");
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_coords",
+                pointName, edge.x, edge.y, edge.z), x, curY, 0xFFDDDDDD, true);
 
         curY = debugY + 100;
-        extractor.text(font, String.format("§7Zasięg poziomy: §f%.2fm §7| Głębokość: §f%+.2fm",
+        extractor.text(font, I18n.get("hud.pw_groundworks_excavator.debug_reach_depth",
                 reach, -depth), x, curY, 0xFFAAAAAA, true);
 
         // ── AUTO-TRENCH STATUS (If active) ──
         if (autoActive) {
             extractor.fill(x, debugY + 111, x + debugWidth - 3, debugY + 112, 0x44FFFFFF);
             curY = debugY + 115;
-            String passName = excavator.isAutoTrenchInLeftPass() ? "§bPOSZERZENIE L" : "§eŚRODEK";
-            extractor.text(font, String.format("§eAuto-Trench: §a%s §7[%s§7] §7(max: §f%.1fm§7)",
+            String passName = excavator.isAutoTrenchInLeftPass()
+                    ? I18n.get("hud.pw_groundworks_excavator.pass_left")
+                    : I18n.get("hud.pw_groundworks_excavator.pass_center");
+            extractor.text(font, I18n.get("hud.pw_groundworks_excavator.autotrench_header",
                     excavator.getAutoTrenchPhase(), passName, excavator.getAutoTrenchMaxDepth()), x, curY, 0xFFFFFFFF, true);
             curY = debugY + 125;
             int maxForPass = excavator.isAutoTrenchInLeftPass()
                     ? excavator.getAutoTrenchLeftExpansionCycles()
                     : excavator.getAutoTrenchMaxCutsPerStation();
-            extractor.text(font, String.format("§7Sekcje: §f%d §7| Cykl: §f%d/%d §7| Poszerzenie: §f%.1f bl.",
+            extractor.text(font, I18n.get("hud.pw_groundworks_excavator.autotrench_stats",
                     excavator.getAutoTrenchCompletedSections(),
                     excavator.getAutoTrenchCutsAtStation() + 1,
                     maxForPass,
