@@ -74,7 +74,12 @@ public final class ExcavatorInputHandler {
                 isDriveMode = !isDriveMode;
                 client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.8F, isDriveMode ? 1.2F : 0.9F);
                 client.player.sendSystemMessage(
-                        Component.literal("§6[Koparka] Tryb: " + (isDriveMode ? "§a§lJAZDA (Drive)" : "§b§lRAMIĘ (Excavator Arm)"))
+                        Component.translatable(
+                                "message.pw_groundworks_excavator.mode_change",
+                                Component.translatable(isDriveMode
+                                        ? "message.pw_groundworks_excavator.mode_drive"
+                                        : "message.pw_groundworks_excavator.mode_arm")
+                        )
                 );
             }
 
@@ -88,15 +93,15 @@ public final class ExcavatorInputHandler {
                 client.player.playSound(SoundEvents.ANVIL_USE, 0.7F,
                         currentBucketType == GroundworksExcavatorEntity.BUCKET_HAMMER ? 0.65F
                                 : currentBucketType == GroundworksExcavatorEntity.BUCKET_LARGE ? 0.85F : 1.15F);
-                String msg = switch (currentBucketType) {
+                String msgKey = switch (currentBucketType) {
                     case GroundworksExcavatorEntity.BUCKET_LARGE ->
-                            "§6[Koparka] Osprzęt: §e§lDUŻA ŁYŻKA (512u / 1.0 m³)";
+                            "message.pw_groundworks_excavator.attachment_large_bucket";
                     case GroundworksExcavatorEntity.BUCKET_HAMMER ->
-                            "§6[Koparka] Osprzęt: §c§lMŁOT PNEUMATYCZNY §7[C / 2x C]";
+                            "message.pw_groundworks_excavator.attachment_hammer";
                     default ->
-                            "§6[Koparka] Osprzęt: §b§lŁYŻKA STANDARDOWA (256u / 0.5 m³)";
+                            "message.pw_groundworks_excavator.attachment_standard_bucket";
                 };
-                client.player.sendSystemMessage(Component.literal(msg));
+                client.player.sendSystemMessage(Component.translatable(msgKey));
             }
 
             boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
@@ -125,10 +130,10 @@ public final class ExcavatorInputHandler {
                     lastCTapTime = 0L;
                     client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.9F,
                             hammerLatched ? 0.75F : 1.25F);
-                    client.player.sendSystemMessage(Component.literal(
+                    client.player.sendSystemMessage(Component.translatable(
                             hammerLatched
-                                    ? "§6[Koparka] Młot: §a§lPRACA CIĄGŁA"
-                                    : "§6[Koparka] Młot: §c§lPRACA CIĄGŁA WYŁĄCZONA"
+                                    ? "message.pw_groundworks_excavator.hammer_latched_on"
+                                    : "message.pw_groundworks_excavator.hammer_latched_off"
                     ));
                 } else {
                     lastCTapTime = now;
@@ -149,10 +154,10 @@ public final class ExcavatorInputHandler {
                     debugHudVisible = !debugHudVisible;
                     lastHTapTime = 0L;
                     client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.9F, debugHudVisible ? 1.4F : 0.8F);
-                    client.player.sendSystemMessage(Component.literal(
+                    client.player.sendSystemMessage(Component.translatable(
                             debugHudVisible
-                                    ? "§6[Koparka] HUD debugowy kątów i obrotu: §a§lWŁĄCZONY"
-                                    : "§6[Koparka] HUD debugowy kątów i obrotu: §c§lWYŁĄCZONY"
+                                    ? "message.pw_groundworks_excavator.debug_hud_on"
+                                    : "message.pw_groundworks_excavator.debug_hud_off"
                     ));
                 } else {
                     lastHTapTime = now;

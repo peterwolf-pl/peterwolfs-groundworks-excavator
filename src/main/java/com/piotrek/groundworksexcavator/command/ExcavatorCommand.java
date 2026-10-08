@@ -152,13 +152,13 @@ public final class ExcavatorCommand {
         if (excavator == null) return 0;
         excavator.startAutoTrench(depthBlocks, cycles, expandLeft, expandCycles);
         if (expandLeft > 0.0F && expandCycles > 0) {
-            source.sendSuccess(() -> Component.literal(String.format(
-                    "Automatyczne kopanie z poszerzeniem rozpoczęte: głębokość %.2f bloku/ów, %d cykli środkiem, poszerzenie w lewo o %.1f bloku na %d cykli przed cofnięciem. Zejdź z koparki, aby zatrzymać.",
-                    depthBlocks, cycles, expandLeft, expandCycles)), false);
+            source.sendSuccess(() -> Component.translatable(
+                    "command.pw_groundworks_excavator.autotrench_started_expanded",
+                    depthBlocks, cycles, expandLeft, expandCycles), false);
         } else {
-            source.sendSuccess(() -> Component.literal(String.format(
-                    "Automatyczne kopanie rozpoczęte: głębokość %.2f bloku/ów, %d cykli/cięć przed cofnięciem. Zejdź z koparki, aby zatrzymać.",
-                    depthBlocks, cycles)), false);
+            source.sendSuccess(() -> Component.translatable(
+                    "command.pw_groundworks_excavator.autotrench_started",
+                    depthBlocks, cycles), false);
         }
         return 1;
     }
@@ -174,11 +174,9 @@ public final class ExcavatorCommand {
         if (excavator == null) return 0;
 
         excavator.startAutoTrenchDumpTruck(depthBlocks, cycles, expandLeft, expandCycles);
-        source.sendSuccess(() -> Component.literal(String.format(
-                "AutoTrench DumpTruck rozpoczęty: głębokość %.2f bloku/ów, %d cykli środkiem, poszerzenie w lewo %.1f / %d. "
-                        + "Koparka wysypuje 180° za siebie do wywrotki. Wyjście z kabiny nie zatrzymuje automatu; "
-                        + "brak wywrotki za koparką pauzuje pracę do jej powrotu.",
-                depthBlocks, cycles, expandLeft, expandCycles)), false);
+        source.sendSuccess(() -> Component.translatable(
+                "command.pw_groundworks_excavator.autotrench_truck_started",
+                depthBlocks, cycles, expandLeft, expandCycles), false);
         return 1;
     }
 
@@ -193,12 +191,9 @@ public final class ExcavatorCommand {
         if (excavator == null) return 0;
 
         excavator.startAutoTrenchFleet(depthBlocks, cycles, expandLeft, expandCycles);
-        source.sendSuccess(() -> Component.literal(String.format(
-                "AutoTrench Fleet rozpoczęty: głębokość %.2f bloku/ów, %d cykli środkiem, poszerzenie w lewo %.1f / %d. "
-                        + "Koparka wybiera najbardziej wypełnioną osiągalną wywrotkę w promieniu 14 bloków, "
-                        + "obraca wieżyczkę nad jej skrzynię i po zapełnieniu przełącza się na następną. "
-                        + "Podwójny klakson przesuwa wszystkie pobliskie wywrotki o 1 blok.",
-                depthBlocks, cycles, expandLeft, expandCycles)), false);
+        source.sendSuccess(() -> Component.translatable(
+                "command.pw_groundworks_excavator.autotrench_fleet_started",
+                depthBlocks, cycles, expandLeft, expandCycles), false);
         return 1;
     }
 
@@ -252,8 +247,8 @@ public final class ExcavatorCommand {
                 .orElse(null);
 
         if (nearest == null) {
-            source.sendFailure(Component.literal(
-                    "Nie znaleziono aktywnej koparki AutoTrench w promieniu 20 bloków."));
+            source.sendFailure(Component.translatable(
+                    "command.pw_groundworks_excavator.no_active_excavator"));
         }
         return nearest;
     }
