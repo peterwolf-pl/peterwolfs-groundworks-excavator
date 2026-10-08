@@ -212,10 +212,10 @@ public class ExcavatorModel extends EntityModel<ExcavatorRenderState> {
                         .texOffs(136, 0).addBox(-18.0F, -2.0F, -24.0F, 36.0F, 3.0F, 44.0F)
                         // Rear counterweight with hazard stripes: 92x24 UV [158..250, 122..146]
                         .texOffs(158, 122).addBox(-18.0F, -14.0F, -26.0F, 36.0F, 14.0F, 10.0F)
-                        // Twin rear lamp housings mounted proud of the counterweight.
-                        // Red glow is emitted client-side from these exact points.
-                        .texOffs(66, 152).addBox(-14.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
-                        .texOffs(66, 152).addBox(9.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
+                        // Twin red rear tail lamp housings mounted proud of the counterweight.
+                        // UV [260, 152] is mapped to ruby-red automotive tail lamp lenses.
+                        .texOffs(260, 152).addBox(-14.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
+                        .texOffs(260, 152).addBox(9.5F, -10.5F, -27.2F, 5.0F, 4.0F, 1.2F)
                         // Engine compartment housing: 104x44 UV [0..104, 74..118]
                         .texOffs(0, 74).addBox(-2.0F, -14.0F, -16.0F, 20.0F, 12.0F, 32.0F)
                         // Engine exhaust stack: 16x14 UV [66..82, 152..166]
