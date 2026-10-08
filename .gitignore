@@ -12,4 +12,5 @@ out/
 run/
 logs/
 visual-tests/
+graphify-out/
 .DS_Store
