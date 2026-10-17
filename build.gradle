@@ -41,6 +41,7 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
 	implementation "com.piotrek.groundworks:pw_groundworks:${project.groundworks_version}"
+	implementation "com.peterwolf.realtreefelling:peterwolfs-realistic-tree-felling:1.1.5"
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

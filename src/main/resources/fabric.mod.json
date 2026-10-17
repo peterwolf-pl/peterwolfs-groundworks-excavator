@@ -17,6 +17,7 @@
     "minecraft": "~26.3",
     "java": ">=25",
     "fabric-api": "*",
-    "pw_groundworks": ">=0.1.0"
+    "pw_groundworks": ">=0.1.0",
+    "peterwolfs_realistic_tree_felling": ">=1.1.5"
   }
 }
