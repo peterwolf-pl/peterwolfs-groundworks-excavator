@@ -54,7 +54,7 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
                 .create()) {
 
             TestServerContext server = singleplayer.getServer();
-            TestServerConnection connection = singleplayer.getConnection();
+            
 
             configureWorld(server);
             setupViewingPlatform(server);
@@ -72,28 +72,28 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
                 excavatorHolder[0] = excavator;
             });
 
-            connection.waitForChunksRender();
+            singleplayer.getClientWorld().waitForChunksRender();
             context.waitTicks(160);
 
             // ── Scene 1: Isometric Profile (Front-Left with Glass Windows) ────
             server.runCommand("teleport @a -4.8 182.8 5.2 -136 15");
             context.waitTicks(10);
-            capture(context, connection, "excavator_01_profile_isometric");
+            capture(context, "excavator_01_profile_isometric");
 
             // ── Scene 2: Cabin & Flashing Yellow Warning Beacon Close-Up ─────
             server.runCommand("teleport @a -2.5 182.6 2.5 -135 8");
             context.waitTicks(10);
-            capture(context, connection, "excavator_02_cab_and_beacon");
+            capture(context, "excavator_02_cab_and_beacon");
 
             // ── Scene 3: Rear Counterweight, Hazard Stripes & Exhaust ────────
             server.runCommand("teleport @a 2.8 182.6 -3.8 35 15");
             context.waitTicks(10);
-            capture(context, connection, "excavator_03_counterweight_hazard");
+            capture(context, "excavator_03_counterweight_hazard");
 
             // ── Scene 4: Crawler Tracks & Suspension Rollers ─────────────────
             server.runCommand("teleport @a -4.2 181.2 0.5 -90 8");
             context.waitTicks(10);
-            capture(context, connection, "excavator_04_tracks_and_rollers");
+            capture(context, "excavator_04_tracks_and_rollers");
 
             // ── Scene 5: Operator Seated Inside Glass Cab (Exterior View) ─────
             server.runOnServer(minecraftServer -> {
@@ -105,13 +105,13 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             context.waitTicks(10);
             server.runCommand("teleport @a -2.8 182.8 3.5 -135 12");
             context.waitTicks(10);
-            capture(context, connection, "excavator_05_player_in_glass_cab");
+            capture(context, "excavator_05_player_in_glass_cab");
 
             // ── Scene 6: Operator View through Front Windshield at Work Area ─
             // Camera placed at operator eye level inside cab looking out through windshield at boom & ground
             server.runCommand("teleport @a 0.0 182.35 1.5 0 10");
             context.waitTicks(10);
-            capture(context, connection, "excavator_06_in_cab_work_area_view");
+            capture(context, "excavator_06_in_cab_work_area_view");
 
             // ── Scene 7: Large 2x Bulk Bucket Excavating Ground ──────────────
             server.runOnServer(minecraftServer -> {
@@ -124,7 +124,7 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             context.waitTicks(15);
             server.runCommand("teleport @a 4.8 182.8 4.8 135 16");
             context.waitTicks(10);
-            capture(context, connection, "excavator_07_large_bucket_digging");
+            capture(context, "excavator_07_large_bucket_digging");
 
             // ── Scene 8: Surface skim displaces gravel into a conserved mound ─
             server.runOnServer(minecraftServer -> {
@@ -170,7 +170,7 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             context.waitTicks(80);
             server.runCommand("teleport @a 7.0 182.5 5.0 facing 11.5 180.5 2.5");
             context.waitTicks(10);
-            capture(context, connection, "excavator_08_surface_push_mound");
+            capture(context, "excavator_08_surface_push_mound");
 
             // ── Scene 9: Automatic one-block trench cycle ───────────────────
             final GroundworksExcavatorEntity[] autoHolder = new GroundworksExcavatorEntity[1];
@@ -266,7 +266,7 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
             server.runCommand("gamemode spectator @a");
             server.runCommand("teleport @a 19 184 -12 facing 10 179 -7");
             context.waitTicks(10);
-            capture(context, connection, "excavator_09_automatic_trench");
+            capture(context, "excavator_09_automatic_trench");
         }
     }
 
@@ -400,11 +400,9 @@ public final class ExcavatorVisualGameTest implements FabricClientGameTest {
 
     private static void capture(
             ClientGameTestContext context,
-            TestServerConnection connection,
             String name
     ) {
         context.waitTicks(3);
-        connection.waitForClientboundPackets();
         context.takeScreenshot(TestScreenshotOptions.of(name)
                 .disableCounterPrefix()
                 .withSize(854, 480)

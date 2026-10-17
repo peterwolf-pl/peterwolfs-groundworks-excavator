@@ -12,7 +12,7 @@ import com.piotrek.groundworksexcavator.client.sound.ExcavatorHornSoundControlle
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 
 public class GroundworksExcavatorClient implements ClientModInitializer {
@@ -25,8 +25,8 @@ public class GroundworksExcavatorClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         // Register entity model layer
-        ModelLayerRegistry.registerModelLayer(EXCAVATOR_LAYER, ExcavatorModel::createBodyLayer);
-        ModelLayerRegistry.registerModelLayer(
+        EntityModelLayerRegistry.registerModelLayer(EXCAVATOR_LAYER, ExcavatorModel::createBodyLayer);
+        EntityModelLayerRegistry.registerModelLayer(
                 HYDRAULIC_HAMMER_LAYER, HydraulicHammerModel::createBodyLayer);
 
         // Register entity renderer

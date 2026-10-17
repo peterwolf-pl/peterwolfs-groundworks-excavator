@@ -13,6 +13,7 @@ import com.piotrek.groundworksexcavator.automation.ExcavatorTruckSpotter;
 import com.piotrek.groundworksexcavator.excavation.ArmTerrainContactController;
 import com.piotrek.groundworksexcavator.excavation.BucketDumpingController;
 import com.piotrek.groundworksexcavator.excavation.BucketExcavationController;
+import com.piotrek.groundworksexcavator.excavation.ExcavatorTreeController;
 import com.piotrek.groundworksexcavator.excavation.HydraulicHammerController;
 import com.piotrek.groundworksexcavator.integration.groundworks.GroundworksExcavationAdapter;
 import com.piotrek.groundworksexcavator.material.BucketMaterialContainer;
@@ -38,7 +39,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.InterpolationHandler;
-import net.minecraft.world.entity.LinearInterpolationHandler;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
@@ -145,6 +145,13 @@ public class GroundworksExcavatorEntity extends Entity {
     private int autoTruckHornDelayTicks;
     private int inputFreshTicks;
 
+    // ── Tree Interaction State ───────────────────────────────────────
+    private boolean isPushingTree;
+    @Nullable
+    private BlockPos pushedTreeBase;
+    private float treePushStrain;
+    private int lastTreePushTick;
+
     private static final int DOUBLE_HORN_WINDOW_TICKS = 10;
     private static final int AUTO_SECOND_HORN_DELAY_TICKS = 4;
     private static final int AUTO_TRUCK_STAGE_IDLE = 0;
@@ -169,13 +176,15 @@ public class GroundworksExcavatorEntity extends Entity {
     private float smoothedUpperYawO = Float.NaN;
     private boolean cabinBlockedLastTick;
 
+    private final InterpolationHandler interpolation = new InterpolationHandler(this, 3);
+
     public GroundworksExcavatorEntity(EntityType<?> type, Level level) {
         super(type, level);
     }
 
     @Override
-    protected InterpolationHandler createInterpolationHandler() {
-        return LinearInterpolationHandler.create(this, 3);
+    public InterpolationHandler getInterpolation() {
+        return interpolation;
     }
 
     @Override
@@ -446,6 +455,8 @@ public class GroundworksExcavatorEntity extends Entity {
         if (armRestricted) {
             // High hydraulic overload when attempting to force steel into solid terrain
             targetLoad = 1.0F;
+        } else if (this.isPushingTree || (this.tickCount - this.lastTreePushTick <= 2)) {
+            targetLoad = 0.85F;
         } else if (hammerRequested) {
             targetLoad = 0.36F;
         } else if (this.isDigging()) {
@@ -540,7 +551,6 @@ public class GroundworksExcavatorEntity extends Entity {
 
         // Force position synchronization to passengers and tracking clients while driving
         if (Math.abs(trackState.leftSpeed()) > 0.001F || Math.abs(trackState.rightSpeed()) > 0.001F || Math.abs(trackState.yawDeltaDegrees()) > 0.01F) {
-            this.syncPosition = true;
             this.needsSync = true;
         }
 
@@ -646,7 +656,16 @@ public class GroundworksExcavatorEntity extends Entity {
         this.entityData.set(STORED_UNITS, this.bucket.storedUnits());
         this.entityData.set(CAPACITY, this.bucket.capacity());
 
-        // 8. Commit current pose as previous for next tick's swept volume
+        // 8. Shred foliage and process directional tree felling
+        ExcavatorTreeController.tick(
+                serverLevel,
+                this,
+                this.previousBucketPose,
+                this.currentBucketPose,
+                driver
+        );
+
+        // 9. Commit current pose as previous for next tick's swept volume
         this.previousBucketPose = this.currentBucketPose;
     }
 
@@ -1047,7 +1066,7 @@ public class GroundworksExcavatorEntity extends Entity {
     // ── Driver & Passenger Interaction ────────────────────────────────
 
     @Override
-    public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
+    public InteractionResult interact(Player player, InteractionHand hand) {
         if (player.isSecondaryUseActive()) {
             return InteractionResult.PASS;
         }
@@ -1379,6 +1398,63 @@ public class GroundworksExcavatorEntity extends Entity {
 
     public int getLastDepositedUnits() {
         return this.lastDepositedUnits;
+    }
+
+    public float getInputThrottle() {
+        return this.inputThrottle;
+    }
+
+    public float getInputSteer() {
+        return this.inputSteer;
+    }
+
+    public float getInputCabYaw() {
+        return this.inputCabYaw;
+    }
+
+    public float getInputBoom() {
+        return this.inputBoom;
+    }
+
+    public float getInputStick() {
+        return this.inputStick;
+    }
+
+    public float getInputBucket() {
+        return this.inputBucket;
+    }
+
+    public boolean isPushingTree() {
+        return this.isPushingTree;
+    }
+
+    public void setPushingTree(boolean pushing) {
+        this.isPushingTree = pushing;
+    }
+
+    @Nullable
+    public BlockPos getPushedTreeBase() {
+        return this.pushedTreeBase;
+    }
+
+    public void setPushedTreeBase(@Nullable BlockPos base) {
+        this.pushedTreeBase = base;
+    }
+
+    public float getTreePushStrain() {
+        return this.treePushStrain;
+    }
+
+    public void setTreePushStrain(float strain) {
+        this.treePushStrain = strain;
+    }
+
+    public int getLastTreePushTick() {
+        return this.lastTreePushTick;
+    }
+
+    public void setLastTreePushTick(int tick) {
+        this.lastTreePushTick = tick;
     }
 
     // ── Persistence (Minecraft 26.3 ValueInput / ValueOutput) ─────────

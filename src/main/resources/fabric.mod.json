@@ -13,10 +13,13 @@
     "client": ["com.piotrek.groundworksexcavator.client.GroundworksExcavatorClient"]
   },
   "depends": {
-    "fabricloader": ">=0.19.5",
-    "minecraft": "~26.3",
-    "java": ">=25",
+    "fabricloader": ">=0.19.4",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
     "fabric-api": "*",
     "pw_groundworks": ">=0.1.0"
+  },
+  "suggests": {
+    "peterwolfs_realistic_tree_felling": ">=1.1.5"
   }
 }

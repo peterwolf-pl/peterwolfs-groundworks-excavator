@@ -6,7 +6,7 @@ import com.piotrek.groundworksexcavator.item.ExcavatorItem;
 import com.piotrek.groundworksexcavator.network.ExcavatorInputPayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.Registry;
@@ -95,10 +95,10 @@ public class GroundworksExcavatorMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Initializing Peterwolf's Groundworks Excavator for MC 26.3...");
+        LOGGER.info("Initializing Peterwolf's Groundworks Excavator for MC 1.21.11...");
 
         // 1. Networking registration
-        PayloadTypeRegistry.serverboundPlay().register(
+        PayloadTypeRegistry.playC2S().register(
                 ExcavatorInputPayload.TYPE, ExcavatorInputPayload.CODEC
         );
 
@@ -131,7 +131,7 @@ public class GroundworksExcavatorMod implements ModInitializer {
         );
 
         // 3. Creative Tab placement
-        CreativeModeTabEvents.modifyOutputEvent(TOOLS_AND_UTILITIES_TAB).register(output -> {
+        ItemGroupEvents.modifyEntriesEvent(TOOLS_AND_UTILITIES_TAB).register(output -> {
             output.accept(EXCAVATOR_ITEM);
         });
 
