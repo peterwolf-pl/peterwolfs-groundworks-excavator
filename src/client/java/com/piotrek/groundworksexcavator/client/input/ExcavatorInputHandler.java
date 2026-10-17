@@ -104,14 +104,14 @@ public final class ExcavatorInputHandler {
                 client.player.sendSystemMessage(Component.translatable(msgKey));
             }
 
-            boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed();
+            boolean inGame = client.mouseHandler != null && client.mouseHandler.isMouseGrabbed() && client.getWindow() != null;
 
             // 1c. Key C is context-sensitive:
             // - digging bucket installed: horn
             // - hydraulic hammer installed: existing hammer control
             boolean cRawDown = (ExcavatorKeyBindings.KEY_HAMMER != null
                     && ExcavatorKeyBindings.KEY_HAMMER.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_C));
+                    || (inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_C));
 
             boolean hornActive = currentBucketType != GroundworksExcavatorEntity.BUCKET_HAMMER
                     && cRawDown;
@@ -144,7 +144,7 @@ public final class ExcavatorInputHandler {
 
             // 1d. Check Debug HUD Toggle (Quick Double-tap H)
             boolean hClick = ExcavatorKeyBindings.KEY_DEBUG_HUD != null && ExcavatorKeyBindings.KEY_DEBUG_HUD.consumeClick();
-            boolean hDownDirect = inGame && InputConstants.isKeyDown(InputConstants.KEY_H);
+            boolean hDownDirect = inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_H);
             boolean hJustPressed = hClick || (hDownDirect && !hKeyDownLastTick);
             hKeyDownLastTick = hDownDirect;
 
@@ -176,22 +176,22 @@ public final class ExcavatorInputHandler {
 
             // 3. Boom Controls: Up / Down Arrow (plus KeyMapping)
             boolean boomUp = (ExcavatorKeyBindings.KEY_BOOM_UP != null && ExcavatorKeyBindings.KEY_BOOM_UP.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_UP));
+                    || (inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_UP));
             boolean boomDown = (ExcavatorKeyBindings.KEY_BOOM_DOWN != null && ExcavatorKeyBindings.KEY_BOOM_DOWN.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_DOWN));
+                    || (inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_DOWN));
 
             // 4. Bucket Controls: Left/Right Arrow OR T/G OR KeyMapping (100% fail-safe)
             boolean bucketCurl = (ExcavatorKeyBindings.KEY_BUCKET_CURL != null && ExcavatorKeyBindings.KEY_BUCKET_CURL.isDown())
-                    || (inGame && (InputConstants.isKeyDown(InputConstants.KEY_LEFT) || InputConstants.isKeyDown(InputConstants.KEY_T)));
+                    || (inGame && (InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_LEFT) || InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_T)));
 
             boolean bucketDump = (ExcavatorKeyBindings.KEY_BUCKET_DUMP != null && ExcavatorKeyBindings.KEY_BUCKET_DUMP.isDown())
-                    || (inGame && (InputConstants.isKeyDown(InputConstants.KEY_RIGHT) || InputConstants.isKeyDown(InputConstants.KEY_G)));
+                    || (inGame && (InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_RIGHT) || InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_G)));
 
             // 5. Stick Shortcuts (R / F)
             boolean stickOutKey = (ExcavatorKeyBindings.KEY_STICK_OUT != null && ExcavatorKeyBindings.KEY_STICK_OUT.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_R));
+                    || (inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_R));
             boolean stickInKey = (ExcavatorKeyBindings.KEY_STICK_IN != null && ExcavatorKeyBindings.KEY_STICK_IN.isDown())
-                    || (inGame && InputConstants.isKeyDown(InputConstants.KEY_F));
+                    || (inGame && InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_F));
 
             float throttle = 0.0F;
             float steer = 0.0F;

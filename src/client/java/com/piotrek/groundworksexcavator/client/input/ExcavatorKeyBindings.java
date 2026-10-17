@@ -32,7 +32,7 @@ public final class ExcavatorKeyBindings {
         // Mode Switch (Key X)
         KEY_TOGGLE_MODE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.toggle_mode",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_X,
                 CATEGORY
         ));
@@ -40,7 +40,7 @@ public final class ExcavatorKeyBindings {
         // Bucket Variant Switch (Key Z)
         KEY_TOGGLE_BUCKET = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.toggle_bucket",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_Z,
                 CATEGORY
         ));
@@ -48,14 +48,14 @@ public final class ExcavatorKeyBindings {
         // Right Hand: Boom Up/Down (Arrow Up / Down)
         KEY_BOOM_UP = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.boom_up",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_UP,
                 CATEGORY
         ));
 
         KEY_BOOM_DOWN = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.boom_down",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_DOWN,
                 CATEGORY
         ));
@@ -63,14 +63,14 @@ public final class ExcavatorKeyBindings {
         // Right Hand: Bucket Curl/Dump (Arrow Left / Right, or T / G)
         KEY_BUCKET_CURL = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.bucket_curl",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_LEFT,
                 CATEGORY
         ));
 
         KEY_BUCKET_DUMP = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.bucket_dump",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_RIGHT,
                 CATEGORY
         ));
@@ -78,14 +78,14 @@ public final class ExcavatorKeyBindings {
         // Cab Rotation (A / D, or Arrow Left / Right)
         KEY_CAB_LEFT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.cab_left",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_A,
                 CATEGORY
         ));
 
         KEY_CAB_RIGHT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.cab_right",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_D,
                 CATEGORY
         ));
@@ -93,14 +93,14 @@ public final class ExcavatorKeyBindings {
         // Dipper Stick Extension (W / S, or R / F)
         KEY_STICK_OUT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.stick_out",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_R,
                 CATEGORY
         ));
 
         KEY_STICK_IN = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.stick_in",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_F,
                 CATEGORY
         ));
@@ -108,7 +108,7 @@ public final class ExcavatorKeyBindings {
         // C is contextual: horn with buckets, hydraulic hammer control with hammer attachment.
         KEY_HAMMER = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.hammer",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_C,
                 CATEGORY
         ));
@@ -116,7 +116,7 @@ public final class ExcavatorKeyBindings {
         // Debug HUD Toggle (Double-tap H)
         KEY_DEBUG_HUD = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pw_groundworks_excavator.debug_hud",
-                InputConstants.Type.KEYBOARD,
+                InputConstants.Type.KEYSYM,
                 InputConstants.KEY_H,
                 CATEGORY
         ));

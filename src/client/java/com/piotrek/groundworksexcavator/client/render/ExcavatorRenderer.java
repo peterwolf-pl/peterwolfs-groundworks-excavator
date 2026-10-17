@@ -115,14 +115,14 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
         stack.pushPose();
 
         // Rotate undercarriage heading (facing where tracks drive)
-        stack.rotateDegrees(Axis.YP, -state.baseYaw);
+        stack.mulPose(Axis.YP.rotationDegrees(-state.baseYaw));
 
         // Apply ground pitch and roll
         if (Math.abs(state.basePitch) > 0.01F) {
-            stack.rotateDegrees(Axis.XP, state.basePitch);
+            stack.mulPose(Axis.XP.rotationDegrees(state.basePitch));
         }
         if (Math.abs(state.baseRoll) > 0.01F) {
-            stack.rotateDegrees(Axis.ZP, state.baseRoll);
+            stack.mulPose(Axis.ZP.rotationDegrees(state.baseRoll));
         }
 
         // Standard Minecraft entity model coordinate transform
@@ -139,7 +139,8 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                 RenderTypes.entityCutout(TEXTURE),
                 state.lightCoords,
                 OverlayTexture.NO_OVERLAY,
-                state.outlineColor
+                state.outlineColor,
+                null
         );
 
         if (state.bucketType == GroundworksExcavatorEntity.BUCKET_HAMMER) {
@@ -148,13 +149,13 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
             // Reproduce the exact ModelPart hierarchy to the bucket joint.
             // ArmKinematics uses the same offsets and rotations server-side.
             stack.translate(0.0F, 9.0F / 16.0F, 0.0F);
-            stack.rotateDegrees(Axis.YP, state.upperYaw);
+            stack.mulPose(Axis.YP.rotationDegrees(state.upperYaw));
             stack.translate(5.5F / 16.0F, -6.0F / 16.0F, 5.0F / 16.0F);
-            stack.rotateDegrees(Axis.XP, state.boomAngle);
+            stack.mulPose(Axis.XP.rotationDegrees(state.boomAngle));
             stack.translate(0.0F, 0.0F, 56.0F / 16.0F);
-            stack.rotateDegrees(Axis.XP, state.stickAngle);
+            stack.mulPose(Axis.XP.rotationDegrees(state.stickAngle));
             stack.translate(0.0F, 0.0F, 38.0F / 16.0F);
-            stack.rotateDegrees(Axis.XP, state.bucketAngle + 45.0F);
+            stack.mulPose(Axis.XP.rotationDegrees(state.bucketAngle + 45.0F));
 
             this.hammerModel.setupAnim(state);
             collector.submitModel(
@@ -164,7 +165,8 @@ public class ExcavatorRenderer extends EntityRenderer<GroundworksExcavatorEntity
                     RenderTypes.entityCutout(HAMMER_TEXTURE),
                     state.lightCoords,
                     OverlayTexture.NO_OVERLAY,
-                    state.outlineColor
+                    state.outlineColor,
+                    null
             );
             stack.popPose();
         }
